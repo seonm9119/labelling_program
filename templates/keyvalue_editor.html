@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Key-Value 수정 뷰어{% endblock %}
+{% block header_subtitle %}JSON 어노테이션 수정 및 시각화{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/keyvalue_editor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="editor-section">
+    <!-- 폴더 업로드 섹션 -->
+    <section class="path-section">
+        <div class="editor-header">
+            <h2>📂 폴더 업로드</h2>
+            <p class="editor-desc">이미지와 JSON 파일이 있는 폴더를 선택하세요</p>
+        </div>
+        <div class="path-grid">
+            <!-- 이미지 폴더 -->
+            <div class="path-card">
+                <div class="card-header">
+                    <h3>이미지 폴더</h3>
+                    <span class="status-badge" id="imageFolderStatus">미선택</span>
+                </div>
+                <div class="upload-area" id="imageUploadArea">
+                    <input type="file" id="imageFolderInput" webkitdirectory directory multiple hidden>
+                    <div class="upload-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 2.58579C2.96086 2.21071 3.46957 2 4 2H9L11 5H20C20.5304 5 21.0391 5.21071 21.4142 5.58579C21.7893 5.96086 22 6.46957 22 7V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p>클릭하여 폴더 선택</p>
+                        <span class="file-types">이미지 폴더 (PNG, JPG)</span>
+                    </div>
+                </div>
+                <div class="folder-info" id="imageFolderInfo"></div>
+            </div>
+
+            <!-- JSON 폴더 -->
+            <div class="path-card">
+                <div class="card-header">
+                    <h3>JSON 폴더</h3>
+                    <span class="status-badge" id="jsonFolderStatus">미선택</span>
+                </div>
+                <div class="upload-area" id="jsonUploadArea">
+                    <input type="file" id="jsonFolderInput" webkitdirectory directory multiple hidden>
+                    <div class="upload-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p>클릭하여 폴더 선택</p>
+                        <span class="file-types">JSON 파일 폴더</span>
+                    </div>
+                </div>
+                <div class="folder-info" id="jsonFolderInfo"></div>
+            </div>
+        </div>
+        <div class="start-section">
+            <button class="btn btn-primary btn-large" id="startViewer" disabled>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                    <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
+                </svg>
+                뷰어 시작
+            </button>
+        </div>
+    </section>
+
+    <!-- 뷰어 섹션 -->
+    <section class="viewer-section" id="viewerSection" hidden>
+        <div class="viewer-header">
+            <div class="header-left">
+                <h2>✏️ 어노테이션 수정</h2>
+                <div class="navigation-info">
+                    <span class="current-file" id="currentFileName">-</span>
+                    <span class="file-counter" id="fileCounter">0 / 0</span>
+                </div>
+            </div>
+            <div class="viewer-actions">
+                <button class="btn btn-secondary" id="prevBtn" title="이전 (←)">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    이전
+                </button>
+                <button class="btn btn-secondary" id="nextBtn" title="다음 (→)">
+                    다음
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <button class="btn btn-primary" id="saveBtn">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 2.58579C3.96086 2.21071 4.46957 2 5 2H16L21 7V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M17 21V13H7V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M7 3V7H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    저장
+                </button>
+            </div>
+        </div>
+
+        <div class="viewer-content">
+            <!-- 왼쪽: 이미지 뷰어 -->
+            <div class="image-viewer">
+                <div class="viewer-controls">
+                    <button class="control-btn" id="zoomIn">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                            <path d="M21 21L16.65 16.65M11 8V14M8 11H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn" id="zoomOut">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                            <path d="M21 21L16.65 16.65M8 11H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn" id="zoomReset">100%</button>
+                    <span id="zoomLevel">100%</span>
+                </div>
+                <div class="canvas-wrapper" id="canvasWrapper">
+                    <div class="canvas-container" id="canvasContainer">
+                        <img id="viewerImage" alt="Image">
+                        <canvas id="bboxCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 어노테이션 리스트 -->
+            <div class="annotation-list">
+                <div class="list-header">
+                    <h3>어노테이션 목록</h3>
+                    <span class="count-badge" id="annotationCount">0</span>
+                </div>
+                <div class="list-body" id="annotationListBody">
+                    <!-- 어노테이션 항목들이 여기에 동적으로 추가됨 -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 편집 팝업 -->
+    <div class="edit-popup" id="editPopup" hidden>
+        <div class="popup-header">
+            <h3>어노테이션 편집</h3>
+            <button class="popup-close" id="popupClose">×</button>
+        </div>
+        <div class="popup-body">
+            <div class="form-group">
+                <label>타입</label>
+                <div class="type-display" id="editType">KEY</div>
+            </div>
+            <div class="form-group" id="keyIdGroup">
+                <label>Key ID</label>
+                <input type="text" id="editKeyId" placeholder="숫자 입력" inputmode="numeric">
+            </div>
+            <div class="form-group">
+                <label>텍스트</label>
+                <textarea id="editText" rows="3" placeholder="텍스트 입력"></textarea>
+            </div>
+            <div class="form-group" id="linkedValuesGroup" hidden>
+                <label>연결된 VALUE</label>
+                <div class="linked-values-list" id="linkedValuesList">
+                    <!-- 연결된 VALUE 목록이 동적으로 추가됨 -->
+                </div>
+            </div>
+        </div>
+        <div class="popup-footer">
+            <button class="btn btn-secondary" id="cancelEdit">취소</button>
+            <button class="btn btn-primary" id="saveEdit">저장</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.DEFAULT_DATA_PATH = "{{ default_data_path }}";
+</script>
+<script src="{{ url_for('static', filename='js/keyvalue_editor.js') }}"></script>
+{% endblock %}

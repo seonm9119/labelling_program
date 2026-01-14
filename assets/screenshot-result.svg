@@ -1,0 +1,146 @@
+<svg width="900" height="600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgResult" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentResult" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#e94560;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff6b6b;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="900" height="600" fill="url(#bgResult)"/>
+  
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="220" height="600" fill="#0f0f23"/>
+  <text x="20" y="40" font-family="Arial, sans-serif" font-size="18" fill="#e94560">🏷️</text>
+  <text x="45" y="40" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#e94560">Labelling Programs</text>
+  
+  <text x="20" y="75" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#e94560">CLIP 이미지 분류기</text>
+  
+  <rect x="12" y="85" width="196" height="38" rx="8" fill="url(#accentResult)"/>
+  <text x="28" y="109" font-family="Arial, sans-serif" font-size="12" fill="white">📊 단일 이미지 분석</text>
+  
+  <rect x="12" y="130" width="196" height="38" rx="8" fill="transparent"/>
+  <text x="28" y="154" font-family="Arial, sans-serif" font-size="12" fill="#64748b">📁 다중 이미지 분류</text>
+  
+  <text x="20" y="195" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#e94560">Coming Soon</text>
+  <text x="28" y="220" font-family="Arial, sans-serif" font-size="11" fill="#555">🔲 바운딩 박스 라벨러</text>
+  <text x="28" y="250" font-family="Arial, sans-serif" font-size="11" fill="#555">🎨 세그멘테이션 도구</text>
+  
+  <!-- Header -->
+  <rect x="220" y="0" width="680" height="55" fill="#0f0f23"/>
+  <text x="240" y="33" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#e94560">🏷️ Labelling Programs</text>
+  <text x="750" y="33" font-family="Arial, sans-serif" font-size="10" fill="#4ade80">● 분석 완료</text>
+  
+  <!-- Results Section -->
+  <rect x="240" y="70" width="640" height="510" rx="12" fill="#2a2a4a" stroke="#444" stroke-width="1"/>
+  
+  <!-- Results Header -->
+  <text x="260" y="100" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">📊 분석 결과</text>
+  
+  <!-- Badges -->
+  <rect x="500" y="82" width="75" height="24" rx="6" fill="rgba(96, 165, 250, 0.15)"/>
+  <text x="512" y="98" font-family="Arial, sans-serif" font-size="9" fill="#60a5fa">총 <tspan font-weight="bold">12,847</tspan>개</text>
+  
+  <rect x="585" y="82" width="95" height="24" rx="6" fill="rgba(74, 222, 128, 0.15)"/>
+  <text x="594" y="98" font-family="Arial, sans-serif" font-size="9" fill="#4ade80">임계치 이상 <tspan font-weight="bold">2,341</tspan>개</text>
+  
+  <rect x="690" y="82" width="95" height="24" rx="6" fill="rgba(251, 191, 36, 0.15)"/>
+  <text x="699" y="98" font-family="Arial, sans-serif" font-size="9" fill="#fbbf24">임계치 미만 <tspan font-weight="bold">10,506</tspan>개</text>
+  
+  <!-- Stats Grid -->
+  <rect x="260" y="120" width="140" height="65" rx="8" fill="#1e1e3f" stroke="#333" stroke-width="1"/>
+  <rect x="272" y="132" width="30" height="30" rx="6" fill="rgba(251, 191, 36, 0.15)"/>
+  <text x="287" y="152" font-family="Arial, sans-serif" font-size="14" fill="#fbbf24" text-anchor="middle">📊</text>
+  <text x="315" y="148" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">평균 유사도</text>
+  <text x="315" y="165" font-family="monospace" font-size="14" font-weight="bold" fill="white">45.2%</text>
+  
+  <rect x="410" y="120" width="140" height="65" rx="8" fill="#1e1e3f" stroke="#333" stroke-width="1"/>
+  <rect x="422" y="132" width="30" height="30" rx="6" fill="rgba(74, 222, 128, 0.15)"/>
+  <text x="437" y="152" font-family="Arial, sans-serif" font-size="14" fill="#4ade80" text-anchor="middle">⬆</text>
+  <text x="465" y="148" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">최대 유사도</text>
+  <text x="465" y="165" font-family="monospace" font-size="14" font-weight="bold" fill="white">96.8%</text>
+  
+  <rect x="560" y="120" width="140" height="65" rx="8" fill="#1e1e3f" stroke="#333" stroke-width="1"/>
+  <rect x="572" y="132" width="30" height="30" rx="6" fill="rgba(239, 68, 68, 0.15)"/>
+  <text x="587" y="152" font-family="Arial, sans-serif" font-size="14" fill="#ef4444" text-anchor="middle">⬇</text>
+  <text x="615" y="148" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">최소 유사도</text>
+  <text x="615" y="165" font-family="monospace" font-size="14" font-weight="bold" fill="white">12.1%</text>
+  
+  <rect x="710" y="120" width="140" height="65" rx="8" fill="#1e1e3f" stroke="#333" stroke-width="1"/>
+  <rect x="722" y="132" width="30" height="30" rx="6" fill="rgba(96, 165, 250, 0.15)"/>
+  <text x="737" y="152" font-family="Arial, sans-serif" font-size="14" fill="#60a5fa" text-anchor="middle">〰</text>
+  <text x="765" y="148" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">표준편차</text>
+  <text x="765" y="165" font-family="monospace" font-size="14" font-weight="bold" fill="white">18.45</text>
+  
+  <!-- Chart Area -->
+  <rect x="260" y="195" width="590" height="130" rx="8" fill="#1e1e3f" stroke="#333" stroke-width="1"/>
+  <text x="280" y="218" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">유사도 분포</text>
+  
+  <!-- Simplified Bar Chart -->
+  <rect x="300" y="270" width="35" height="18" rx="3" fill="url(#accentResult)" opacity="0.3"/>
+  <rect x="345" y="260" width="35" height="28" rx="3" fill="url(#accentResult)" opacity="0.4"/>
+  <rect x="390" y="248" width="35" height="40" rx="3" fill="url(#accentResult)" opacity="0.5"/>
+  <rect x="435" y="235" width="35" height="53" rx="3" fill="url(#accentResult)" opacity="0.6"/>
+  <rect x="480" y="245" width="35" height="43" rx="3" fill="url(#accentResult)" opacity="0.7"/>
+  <rect x="525" y="255" width="35" height="33" rx="3" fill="url(#accentResult)" opacity="0.8"/>
+  <rect x="570" y="240" width="35" height="48" rx="3" fill="url(#accentResult)" opacity="0.9"/>
+  <rect x="615" y="252" width="35" height="36" rx="3" fill="url(#accentResult)"/>
+  <rect x="660" y="265" width="35" height="23" rx="3" fill="url(#accentResult)" opacity="0.7"/>
+  <rect x="705" y="275" width="35" height="13" rx="3" fill="url(#accentResult)" opacity="0.5"/>
+  
+  <!-- X axis labels -->
+  <text x="317" y="302" font-family="Arial, sans-serif" font-size="7" fill="#555" text-anchor="middle">0-10</text>
+  <text x="407" y="302" font-family="Arial, sans-serif" font-size="7" fill="#555" text-anchor="middle">20-30</text>
+  <text x="497" y="302" font-family="Arial, sans-serif" font-size="7" fill="#555" text-anchor="middle">40-50</text>
+  <text x="587" y="302" font-family="Arial, sans-serif" font-size="7" fill="#555" text-anchor="middle">60-70</text>
+  <text x="677" y="302" font-family="Arial, sans-serif" font-size="7" fill="#555" text-anchor="middle">80-90</text>
+  <text x="722" y="302" font-family="Arial, sans-serif" font-size="7" fill="#555" text-anchor="middle">90-100</text>
+  
+  <!-- Image List -->
+  <rect x="260" y="335" width="590" height="225" rx="8" fill="#1e1e3f" stroke="#333" stroke-width="1"/>
+  <text x="280" y="358" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">이미지 상세 목록</text>
+  <text x="420" y="358" font-family="Arial, sans-serif" font-size="8" fill="#555">(상위 1000개 표시)</text>
+  
+  <!-- Search and Sort -->
+  <rect x="570" y="345" width="140" height="22" rx="4" fill="#2a2a4a" stroke="#333" stroke-width="1"/>
+  <text x="582" y="360" font-family="Arial, sans-serif" font-size="9" fill="#555">🔍 파일명 검색...</text>
+  
+  <rect x="720" y="345" width="110" height="22" rx="4" fill="#2a2a4a" stroke="#333" stroke-width="1"/>
+  <text x="732" y="360" font-family="Arial, sans-serif" font-size="9" fill="#64748b">유사도 높은순 ▼</text>
+  
+  <!-- List Items -->
+  <rect x="275" y="375" width="560" height="35" rx="6" fill="#2a2a4a"/>
+  <rect x="275" y="375" width="3" height="35" rx="1" fill="#4ade80"/>
+  <text x="292" y="392" font-family="Arial, sans-serif" font-size="10" fill="white">IMG_2847.jpg</text>
+  <text x="292" y="404" font-family="monospace" font-size="7" fill="#555">/home/user/images/photos/IMG_2847.jpg</text>
+  <rect x="755" y="382" width="65" height="21" rx="4" fill="rgba(74, 222, 128, 0.15)"/>
+  <text x="787" y="396" font-family="monospace" font-size="10" font-weight="bold" fill="#4ade80" text-anchor="middle">96.8%</text>
+  
+  <rect x="275" y="415" width="560" height="35" rx="6" fill="#2a2a4a"/>
+  <rect x="275" y="415" width="3" height="35" rx="1" fill="#4ade80"/>
+  <text x="292" y="432" font-family="Arial, sans-serif" font-size="10" fill="white">photo_0394.png</text>
+  <text x="292" y="444" font-family="monospace" font-size="7" fill="#555">/home/user/images/album/photo_0394.png</text>
+  <rect x="755" y="422" width="65" height="21" rx="4" fill="rgba(74, 222, 128, 0.15)"/>
+  <text x="787" y="436" font-family="monospace" font-size="10" font-weight="bold" fill="#4ade80" text-anchor="middle">87.1%</text>
+  
+  <rect x="275" y="455" width="560" height="35" rx="6" fill="#2a2a4a"/>
+  <rect x="275" y="455" width="3" height="35" rx="1" fill="#4ade80"/>
+  <text x="292" y="472" font-family="Arial, sans-serif" font-size="10" fill="white">capture_12.jpg</text>
+  <text x="292" y="484" font-family="monospace" font-size="7" fill="#555">/home/user/images/screen/capture_12.jpg</text>
+  <rect x="755" y="462" width="65" height="21" rx="4" fill="rgba(74, 222, 128, 0.15)"/>
+  <text x="787" y="476" font-family="monospace" font-size="10" font-weight="bold" fill="#4ade80" text-anchor="middle">81.5%</text>
+  
+  <rect x="275" y="495" width="560" height="35" rx="6" fill="#2a2a4a"/>
+  <rect x="275" y="495" width="3" height="35" rx="1" fill="#555"/>
+  <text x="292" y="512" font-family="Arial, sans-serif" font-size="10" fill="white">DSC_0042.jpg</text>
+  <text x="292" y="524" font-family="monospace" font-size="7" fill="#555">/home/user/images/camera/DSC_0042.jpg</text>
+  <rect x="755" y="502" width="65" height="21" rx="4" fill="rgba(251, 191, 36, 0.15)"/>
+  <text x="787" y="516" font-family="monospace" font-size="10" font-weight="bold" fill="#fbbf24" text-anchor="middle">58.2%</text>
+  
+  <!-- Pagination -->
+  <text x="550" y="575" font-family="Arial, sans-serif" font-size="9" fill="#555" text-anchor="middle">1 / 1285 페이지 | 총 12,847개 결과</text>
+</svg>

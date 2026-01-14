@@ -1,0 +1,115 @@
+<svg width="900" height="550" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgMain" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentMain" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#e94560;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff6b6b;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="900" height="550" fill="url(#bgMain)"/>
+  
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="220" height="550" fill="#0f0f23"/>
+  
+  <!-- Sidebar Logo -->
+  <text x="20" y="40" font-family="Arial, sans-serif" font-size="18" fill="#e94560">🏷️</text>
+  <text x="45" y="40" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#e94560">Labelling Programs</text>
+  
+  <!-- Nav Section: CLIP -->
+  <text x="20" y="75" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#e94560" text-transform="uppercase">CLIP 이미지 분류기</text>
+  
+  <rect x="12" y="85" width="196" height="38" rx="8" fill="url(#accentMain)"/>
+  <text x="28" y="109" font-family="Arial, sans-serif" font-size="12" fill="white">📊 단일 이미지 분석</text>
+  
+  <rect x="12" y="130" width="196" height="38" rx="8" fill="transparent"/>
+  <text x="28" y="154" font-family="Arial, sans-serif" font-size="12" fill="#64748b">📁 다중 이미지 분류</text>
+  <rect x="155" y="143" width="45" height="14" rx="4" fill="#4ade80"/>
+  <text x="161" y="153" font-family="Arial, sans-serif" font-size="7" fill="white" font-weight="bold">효율적!</text>
+  
+  <!-- Nav Section: Coming Soon -->
+  <text x="20" y="195" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#e94560" text-transform="uppercase">Coming Soon</text>
+  
+  <rect x="12" y="205" width="196" height="38" rx="8" fill="transparent" opacity="0.4"/>
+  <text x="28" y="229" font-family="Arial, sans-serif" font-size="12" fill="#555">🔲 바운딩 박스 라벨러</text>
+  
+  <rect x="12" y="250" width="196" height="38" rx="8" fill="transparent" opacity="0.4"/>
+  <text x="28" y="274" font-family="Arial, sans-serif" font-size="12" fill="#555">🎨 세그멘테이션 도구</text>
+  
+  <!-- Header -->
+  <rect x="220" y="0" width="680" height="55" fill="#0f0f23"/>
+  <text x="240" y="33" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#e94560">🏷️ Labelling Programs</text>
+  <text x="430" y="33" font-family="Arial, sans-serif" font-size="10" fill="#64748b">CLIP 이미지 분류기 - AI 기반 유사도 분석</text>
+  
+  <!-- Server Info Badges -->
+  <rect x="640" y="15" width="75" height="24" rx="6" fill="rgba(118, 185, 0, 0.15)" stroke="rgba(118, 185, 0, 0.3)" stroke-width="1"/>
+  <text x="650" y="31" font-family="monospace" font-size="8" fill="#76b900">RTX 3090</text>
+  
+  <rect x="725" y="15" width="50" height="24" rx="6" fill="rgba(96, 165, 250, 0.15)" stroke="rgba(96, 165, 250, 0.3)" stroke-width="1"/>
+  <text x="735" y="31" font-family="monospace" font-size="8" fill="#60a5fa">24GB</text>
+  
+  <rect x="785" y="15" width="55" height="24" rx="6" fill="rgba(74, 222, 128, 0.15)" stroke="rgba(74, 222, 128, 0.3)" stroke-width="1"/>
+  <text x="793" y="31" font-family="monospace" font-size="8" fill="#4ade80">✅ 준비</text>
+  
+  <!-- Main Content Area -->
+  <!-- Upload Card -->
+  <rect x="240" y="75" width="260" height="190" rx="12" fill="#2a2a4a" stroke="#444" stroke-width="1"/>
+  <rect x="255" y="90" width="230" height="135" rx="8" fill="#1e1e3f" stroke="#555" stroke-width="2" stroke-dasharray="8,4"/>
+  <text x="370" y="145" font-family="Arial, sans-serif" font-size="32" fill="#555" text-anchor="middle">📤</text>
+  <text x="370" y="175" font-family="Arial, sans-serif" font-size="12" fill="#94a3b8" text-anchor="middle">기준 이미지</text>
+  <text x="370" y="195" font-family="Arial, sans-serif" font-size="9" fill="#555" text-anchor="middle">클릭 또는 드래그 앤 드롭</text>
+  <text x="370" y="255" font-family="Arial, sans-serif" font-size="10" fill="#64748b" text-anchor="middle">이미지를 업로드하세요</text>
+  
+  <!-- Folder Path Card -->
+  <rect x="520" y="75" width="340" height="85" rx="12" fill="#2a2a4a" stroke="#444" stroke-width="1"/>
+  <text x="540" y="98" font-family="Arial, sans-serif" font-size="10" fill="#64748b">📂 비교할 폴더 경로 (서버)</text>
+  <rect x="540" y="108" width="300" height="32" rx="6" fill="#1e1e3f" stroke="#333" stroke-width="1"/>
+  <text x="555" y="129" font-family="monospace" font-size="10" fill="#555">/home/user/images</text>
+  
+  <!-- Target Folder Card -->
+  <rect x="520" y="170" width="340" height="95" rx="12" fill="#2a2a4a" stroke="#444" stroke-width="1"/>
+  <text x="540" y="193" font-family="Arial, sans-serif" font-size="10" fill="#64748b">📁 분류 대상 폴더 경로 (서버)</text>
+  <rect x="540" y="203" width="300" height="32" rx="6" fill="#1e1e3f" stroke="#333" stroke-width="1"/>
+  <text x="555" y="224" font-family="monospace" font-size="10" fill="#555">/home/user/classified</text>
+  <text x="540" y="255" font-family="Arial, sans-serif" font-size="8" fill="#555">임계치 이상의 유사 이미지를 복사/이동할 폴더</text>
+  
+  <!-- Control Section -->
+  <rect x="240" y="285" width="620" height="95" rx="12" fill="#2a2a4a" stroke="#444" stroke-width="1"/>
+  
+  <!-- Threshold Control -->
+  <text x="260" y="312" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">유사도 임계치</text>
+  <text x="400" y="312" font-family="monospace" font-size="13" font-weight="bold" fill="#e94560">70%</text>
+  <rect x="260" y="322" width="190" height="7" rx="3" fill="#1e1e3f"/>
+  <rect x="260" y="322" width="133" height="7" rx="3" fill="url(#accentMain)"/>
+  <circle cx="393" cy="325.5" r="8" fill="url(#accentMain)"/>
+  <text x="260" y="345" font-family="Arial, sans-serif" font-size="8" fill="#555">낮음 (0%)</text>
+  <text x="400" y="345" font-family="Arial, sans-serif" font-size="8" fill="#555">높음 (100%)</text>
+  
+  <!-- Move Mode -->
+  <text x="480" y="312" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">파일 처리 방식</text>
+  <circle cx="490" cy="332" r="6" fill="#e94560"/>
+  <circle cx="490" cy="332" r="2.5" fill="#2a2a4a"/>
+  <text x="502" y="336" font-family="Arial, sans-serif" font-size="10" fill="white">복사</text>
+  <circle cx="555" cy="332" r="6" stroke="#444" stroke-width="2" fill="transparent"/>
+  <text x="567" y="336" font-family="Arial, sans-serif" font-size="10" fill="#64748b">이동</text>
+  
+  <!-- Buttons -->
+  <rect x="660" y="305" width="85" height="36" rx="8" fill="url(#accentMain)"/>
+  <text x="702" y="328" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">🔍 분석</text>
+  
+  <rect x="755" y="305" width="85" height="36" rx="8" fill="#1e1e3f" stroke="#444" stroke-width="1"/>
+  <text x="797" y="328" font-family="Arial, sans-serif" font-size="11" fill="#64748b" text-anchor="middle">📁 분류</text>
+  
+  <!-- System Status Bar -->
+  <rect x="240" y="400" width="620" height="55" rx="12" fill="#2a2a4a" stroke="#444" stroke-width="1"/>
+  <text x="260" y="425" font-family="Arial, sans-serif" font-size="10" fill="#e94560">📊 시스템 정보</text>
+  <text x="260" y="443" font-family="Arial, sans-serif" font-size="9" fill="#64748b">GPU: NVIDIA RTX 3090 | VRAM: 24GB | CLIP: ViT-B/32</text>
+  <text x="680" y="435" font-family="Arial, sans-serif" font-size="10" fill="#4ade80">✅ 서버 준비 완료</text>
+  
+  <!-- Footer -->
+  <text x="550" y="490" font-family="Arial, sans-serif" font-size="9" fill="#555" text-anchor="middle">Powered by OpenAI CLIP • Built with ❤️ • 다중 기준 이미지 분류 지원</text>
+</svg>

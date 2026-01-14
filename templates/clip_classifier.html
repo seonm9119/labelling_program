@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+
+{% block title %}CLIP 이미지 분류기 - Labelling Programs{% endblock %}
+
+{% block header_subtitle %}CLIP 이미지 분류기 - AI 기반 유사도 분석 및 자동 분류{% endblock %}
+
+{% block head_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/clip.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- 모드 선택 탭 (모바일용) -->
+<section class="mode-tabs">
+    <button class="mode-tab active" data-mode="single">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        단일 기준 이미지
+    </button>
+    <button class="mode-tab" data-mode="multi">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="9" height="9" rx="1" stroke="currentColor" stroke-width="2"/>
+            <rect x="13" y="2" width="9" height="9" rx="1" stroke="currentColor" stroke-width="2"/>
+            <rect x="2" y="13" width="9" height="9" rx="1" stroke="currentColor" stroke-width="2"/>
+            <rect x="13" y="13" width="9" height="9" rx="1" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        다중 기준 이미지
+        <span class="badge-new">효율적!</span>
+    </button>
+</section>
+
+<!-- 단일 모드 섹션 -->
+<section class="input-section" id="singleModeSection">
+    <div class="input-grid">
+        <!-- 기준 이미지 업로드 -->
+        <div class="upload-card" id="imageACard">
+            <div class="upload-area" id="imageAArea">
+                <input type="file" id="imageAInput" accept="image/*" hidden>
+                <div class="upload-content">
+                    <div class="upload-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="17,8 12,3 7,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3>기준 이미지</h3>
+                    <p>이미지를 업로드하세요</p>
+                    <span class="upload-hint">클릭 또는 드래그 앤 드롭</span>
+                </div>
+                <div class="preview-container" id="imageAPreview" hidden>
+                    <img id="imageAImg" alt="기준 이미지">
+                    <button class="remove-btn" id="removeImageA">×</button>
+                </div>
+            </div>
+            <div class="file-info" id="imageAInfo"></div>
+        </div>
+
+        <!-- 비교 폴더 경로 입력 -->
+        <div class="path-card">
+            <label for="folderPath">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 3.58579C2.96086 3.21071 3.46957 3 4 3H9L11 6H20C20.5304 6 21.0391 6.21071 21.4142 6.58579C21.7893 6.96086 22 7.46957 22 8V19Z" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                비교할 폴더 경로 (서버)
+            </label>
+            <input type="text" id="folderPath" placeholder="예: /home/user/images 또는 ~/dataset">
+            <p class="path-hint">서버에 있는 이미지 폴더 경로 (하위 폴더 포함)</p>
+        </div>
+    </div>
+
+    <!-- 대상 폴더 설정 -->
+    <div class="path-card full-width">
+        <label for="targetFolder">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 3.58579C2.96086 3.21071 3.46957 3 4 3H9L11 6H20C20.5304 6 21.0391 6.21071 21.4142 6.58579C21.7893 6.96086 22 7.46957 22 8V19Z" stroke="currentColor" stroke-width="2"/>
+                <line x1="12" y1="11" x2="12" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <line x1="9" y1="14" x2="15" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            분류 대상 폴더 경로 (서버)
+        </label>
+        <input type="text" id="targetFolder" placeholder="예: /home/user/classified 또는 ~/output">
+        <p class="path-hint">임계치 이상의 유사 이미지를 복사/이동할 폴더 경로</p>
+    </div>
+</section>
+
+<!-- 다중 모드 섹션 -->
+<section class="input-section" id="multiModeSection" hidden>
+    <!-- 비교 폴더 경로 입력 -->
+    <div class="path-card full-width" style="margin-bottom: 1.5rem;">
+        <label for="multiFolderPath">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 3.58579C2.96086 3.21071 3.46957 3 4 3H9L11 6H20C20.5304 6 21.0391 6.21071 21.4142 6.58579C21.7893 6.96086 22 7.46957 22 8V19Z" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            비교할 폴더 경로 (서버)
+        </label>
+        <input type="text" id="multiFolderPath" placeholder="예: /home/user/images 또는 ~/dataset">
+        <p class="path-hint">서버에 있는 이미지 폴더 경로 (하위 폴더 포함)</p>
+    </div>
+
+    <!-- 기준 이미지 목록 -->
+    <div class="multi-ref-section">
+        <div class="multi-ref-header">
+            <h3>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                    <path d="M8.5 10C9.32843 10 10 9.32843 10 8.5C10 7.67157 9.32843 7 8.5 7C7.67157 7 7 7.67157 7 8.5C7 9.32843 7.67157 10 8.5 10Z" fill="currentColor"/>
+                    <path d="M21 15L16 10L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                기준 이미지 목록
+            </h3>
+            <button class="btn-add-ref" id="addRefBtn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                기준 이미지 추가
+            </button>
+        </div>
+        <p class="multi-ref-hint">각 기준 이미지와 유사한 이미지들이 해당 폴더로 자동 분류됩니다. 비교 이미지 임베딩은 <strong>한 번만</strong> 계산됩니다!</p>
+        
+        <div class="ref-images-list" id="refImagesList">
+            <!-- 기준 이미지 카드들이 여기에 추가됨 -->
+        </div>
+    </div>
+
+    <!-- 분류 모드 선택 -->
+    <div class="classify-mode-card">
+        <label>분류 방식</label>
+        <div class="classify-mode-options">
+            <label class="radio-card">
+                <input type="radio" name="classifyMode" value="best_match" checked>
+                <div class="radio-card-content">
+                    <div class="radio-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="radio-card-text">
+                        <strong>최고 유사도 분류</strong>
+                        <span>각 이미지를 가장 유사한 기준 이미지의 폴더로 분류</span>
+                    </div>
+                </div>
+            </label>
+            <label class="radio-card">
+                <input type="radio" name="classifyMode" value="threshold">
+                <div class="radio-card-content">
+                    <div class="radio-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16 4H18C18.5304 4 19.0391 4.21071 19.4142 4.58579C19.7893 4.96086 20 5.46957 20 6V20C20 20.5304 19.7893 21.0391 19.4142 21.4142C19.0391 21.7893 18.5304 22 18 22H6C5.46957 22 4.96086 21.7893 4.58579 21.4142C4.21071 21.0391 4 20.5304 4 20V6C4 5.46957 4.21071 4.96086 4.58579 4.58579C4.96086 4.21071 5.46957 4 6 4H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <rect x="8" y="2" width="8" height="4" rx="1" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <div class="radio-card-text">
+                        <strong>임계치 분류</strong>
+                        <span>각 기준별 임계치를 모두 적용, 만족하는 것 중 최고 폴더로</span>
+                    </div>
+                </div>
+            </label>
+        </div>
+    </div>
+</section>
+
+<!-- 컨트롤 섹션 -->
+<section class="control-section">
+    <div class="control-row">
+        <div class="threshold-control" id="singleThresholdControl">
+            <label for="threshold">
+                <span class="label-text">유사도 임계치</span>
+                <span class="threshold-value" id="thresholdValue">70%</span>
+            </label>
+            <input type="range" id="threshold" min="0" max="100" value="70">
+            <div class="threshold-hints">
+                <span>낮음 (0%)</span>
+                <span>높음 (100%)</span>
+            </div>
+        </div>
+
+        <div class="multi-threshold-info" id="multiThresholdInfo" hidden>
+            <div class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <span>각 기준 이미지 카드에서 개별 임계치를 설정하세요</span>
+        </div>
+
+        <div class="move-mode-control">
+            <label>파일 처리 방식</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="moveMode" value="copy" checked>
+                    <span>복사</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="moveMode" value="move">
+                    <span>이동</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-analyze" id="analyzeBtn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                🔍 분석 시작
+            </button>
+            <button class="btn btn-classify" id="classifyBtn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.709 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85781 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.85999" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M22 4L12 14.01L9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                📁 분류
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- 분석 진행 상황 -->
+<section class="progress-section" id="progressSection" hidden>
+    <div class="progress-card">
+        <div class="progress-header">
+            <div class="progress-spinner"></div>
+            <span class="progress-title" id="progressTitle">CLIP으로 이미지 분석 중...</span>
+        </div>
+        <div class="progress-bar-container">
+            <div class="progress-bar-main">
+                <div class="progress-fill-main" id="progressFill"></div>
+            </div>
+        </div>
+        <div class="progress-stats">
+            <span class="progress-count"><span id="progressCurrent">0</span> / <span id="progressTotal">0</span></span>
+            <span class="batch-info" id="batchInfo" hidden></span>
+            <span class="progress-percent-main"><span id="progressPercent">0</span>%</span>
+        </div>
+        <div class="progress-phase" id="progressPhase"></div>
+    </div>
+</section>
+
+<!-- 결과 섹션 (단일 모드) -->
+<section class="results-section" id="resultsSection" hidden>
+    <div class="results-header">
+        <h2>📊 분석 결과</h2>
+        <div class="stats-badges">
+            <span class="badge badge-total">총 <strong id="totalCount">0</strong>개</span>
+            <span class="badge badge-above">임계치 이상 <strong id="aboveCount">0</strong>개</span>
+            <span class="badge badge-below">임계치 미만 <strong id="belowCount">0</strong>개</span>
+        </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon mean">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 20V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6 20V16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">평균 유사도</span>
+                <span class="stat-value" id="meanValue">0%</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon max">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 15L12 9L6 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">최대 유사도</span>
+                <span class="stat-value" id="maxValue">0%</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon min">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">최소 유사도</span>
+                <span class="stat-value" id="minValue">0%</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon std">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22 12H18L15 21L9 3L6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">표준편차</span>
+                <span class="stat-value" id="stdValue">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 차트 -->
+    <div class="chart-container">
+        <h3>유사도 분포</h3>
+        <canvas id="distributionChart"></canvas>
+    </div>
+
+    <!-- 이미지 목록 -->
+    <div class="image-list-container">
+        <h3>이미지 상세 목록 <span class="list-note">(상위 1000개 표시)</span></h3>
+        <div class="list-controls">
+            <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <input type="text" id="searchInput" placeholder="파일명 검색...">
+            </div>
+            <div class="sort-control">
+                <label>정렬:</label>
+                <select id="sortSelect">
+                    <option value="desc">유사도 높은순</option>
+                    <option value="asc">유사도 낮은순</option>
+                    <option value="name">파일명순</option>
+                </select>
+            </div>
+        </div>
+        <div class="image-list" id="imageList"></div>
+    </div>
+</section>
+
+<!-- 결과 섹션 (다중 모드) -->
+<section class="results-section multi-results" id="multiResultsSection" hidden>
+    <div class="results-header">
+        <h2>📊 다중 분석 결과</h2>
+        <div class="stats-badges">
+            <span class="badge badge-total">총 <strong id="multiTotalCount">0</strong>개</span>
+            <span class="badge badge-above">임계치 이상 <strong id="multiAboveCount">0</strong>개</span>
+        </div>
+    </div>
+
+    <!-- 기준 이미지별 탭 -->
+    <div class="ref-tabs" id="refTabs">
+        <!-- 탭들이 동적으로 추가됨 -->
+    </div>
+
+    <!-- 기준 이미지별 결과 -->
+    <div class="ref-results" id="refResults">
+        <!-- 결과들이 동적으로 추가됨 -->
+    </div>
+</section>
+
+<!-- 분류 결과 섹션 -->
+<section class="classify-results" id="classifyResults" hidden>
+    <h2>✅ 분류 결과</h2>
+    <div class="classify-summary">
+        <div class="summary-item success">
+            <span class="summary-count" id="movedCount">0</span>
+            <span class="summary-label">처리 완료</span>
+        </div>
+        <div class="summary-item error">
+            <span class="summary-count" id="errorCount">0</span>
+            <span class="summary-label">오류 발생</span>
+        </div>
+    </div>
+    <div class="moved-files-list" id="movedFilesList"></div>
+</section>
+
+<!-- 기준 이미지 카드 템플릿 -->
+<template id="refImageCardTemplate">
+    <div class="ref-image-card" data-ref-index="">
+        <div class="ref-card-header">
+            <span class="ref-card-number"></span>
+            <button class="ref-remove-btn" title="삭제">×</button>
+        </div>
+        <div class="ref-upload-area">
+            <input type="file" accept="image/*" hidden>
+            <div class="ref-upload-content">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="17,8 12,3 7,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>이미지 업로드</span>
+            </div>
+            <div class="ref-preview" hidden>
+                <img alt="기준 이미지">
+            </div>
+        </div>
+        <div class="ref-folder-input">
+            <label>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 3.58579C2.96086 3.21071 3.46957 3 4 3H9L11 6H20C20.5304 6 21.0391 6.21071 21.4142 6.58579C21.7893 6.96086 22 7.46957 22 8V19Z" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                분류 대상 폴더
+            </label>
+            <input type="text" class="ref-folder" placeholder="예: ~/output/category_A">
+        </div>
+        <div class="ref-threshold-control">
+            <label>
+                <span>임계치</span>
+                <span class="ref-threshold-value">70%</span>
+            </label>
+            <input type="range" class="ref-threshold" min="0" max="100" value="70">
+        </div>
+        <div class="ref-file-name"></div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/clip.js') }}"></script>
+{% endblock %}

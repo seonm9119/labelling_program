@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}대용량 자동처리 - Labelling Programs{% endblock %}
+
+{% block header_subtitle %}Key-Value 대용량 자동처리 - 폴더 단위 일괄 처리{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/keyvalue_batch.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="batch-section">
+    <div class="batch-header">
+        <h2>📁 대용량 자동처리</h2>
+        <p class="batch-desc">여러 이미지를 한 번에 자동으로 OCR하고 Key-Value를 매칭합니다</p>
+    </div>
+
+    <div class="batch-content">
+        <!-- 업로드 그리드 (첫 번째 줄: 4개) -->
+        <div class="upload-grid">
+            <!-- 이미지 폴더 -->
+            <div class="upload-card" id="imageCard">
+                <div class="card-header">
+                    <h3>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                            <path d="M21 15L16 10L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        이미지 폴더
+                    </h3>
+                    <span class="upload-status" id="imageStatus">미선택</span>
+                </div>
+                <div class="upload-area" id="imageUploadArea">
+                    <input type="file" id="imageFolder" webkitdirectory directory multiple hidden>
+                    <div class="upload-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 2.58579C2.96086 2.21071 3.46957 2 4 2H9L11 5H20C20.5304 5 21.0391 5.21071 21.4142 5.58579C21.7893 5.96086 22 6.46957 22 7V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p>클릭하여 폴더 선택</p>
+                        <span class="file-types">이미지 폴더 (PNG, JPG)</span>
+                    </div>
+                </div>
+                <div class="file-info" id="imageInfo"></div>
+            </div>
+
+            <!-- 어노테이션 JSON -->
+            <div class="upload-card" id="annotationCard">
+                <div class="card-header">
+                    <h3>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        어노테이션 JSON
+                    </h3>
+                    <span class="upload-status" id="annotationStatus">미업로드</span>
+                </div>
+                <div class="upload-area" id="annotationUploadArea">
+                    <input type="file" id="annotationFile" accept=".json" hidden>
+                    <div class="upload-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="17,8 12,3 7,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p>클릭하거나 드래그</p>
+                        <span class="file-types">JSON 템플릿</span>
+                    </div>
+                </div>
+                <div class="file-info" id="annotationInfo"></div>
+            </div>
+
+            <!-- 물류 OCR 폴더 -->
+            <div class="upload-card" id="logisticsCard">
+                <div class="card-header">
+                    <h3>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 7V4H20V7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M9 20H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        물류 OCR
+                    </h3>
+                    <span class="upload-status" id="logisticsStatus">미선택</span>
+                </div>
+                <div class="upload-area" id="logisticsUploadArea">
+                    <input type="file" id="logisticsFolder" webkitdirectory directory multiple hidden>
+                    <div class="upload-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 2.58579C2.96086 2.21071 3.46957 2 4 2H9L11 5H20C20.5304 5 21.0391 5.21071 21.4142 5.58579C21.7893 5.96086 22 6.46957 22 7V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p>클릭하여 폴더 선택</p>
+                        <span class="file-types">물류 OCR JSON 폴더</span>
+                    </div>
+                </div>
+                <div class="file-info" id="logisticsInfo"></div>
+            </div>
+
+            <!-- PaddleOCR 폴더 -->
+            <div class="upload-card" id="paddleCard">
+                <div class="card-header">
+                    <h3>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        PaddleOCR
+                    </h3>
+                    <span class="upload-status" id="paddleStatus">미선택</span>
+                </div>
+                <div class="upload-area" id="paddleUploadArea">
+                    <input type="file" id="paddleFolder" webkitdirectory directory multiple hidden>
+                    <div class="upload-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 2.58579C2.96086 2.21071 3.46957 2 4 2H9L11 5H20C20.5304 5 21.0391 5.21071 21.4142 5.58579C21.7893 5.96086 22 6.46957 22 7V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p>클릭하여 폴더 선택</p>
+                        <span class="file-types">PaddleOCR JSON 폴더</span>
+                    </div>
+                </div>
+                <div class="file-info" id="paddleInfo"></div>
+            </div>
+        </div>
+
+        <!-- 출력 설정 -->
+        <div class="options-card">
+            <h3>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 2.58579C3.96086 2.21071 4.46957 2 5 2H9L11 5H19C19.5304 5 20.0391 5.21071 20.4142 5.58579C20.7893 5.96086 21 6.46957 21 7V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                출력 설정
+            </h3>
+            <div class="options-grid">
+                <div class="option-item">
+                    <span class="option-label">결과 다운로드</span>
+                    <p class="option-hint">처리 완료 후 결과 JSON 파일들을 ZIP으로 다운로드합니다</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 실행 버튼 -->
+        <div class="action-bar">
+            <button class="btn btn-primary btn-large" id="startBatchBtn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="5,3 19,12 5,21 5,3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                일괄 처리 시작
+            </button>
+            <button class="btn btn-secondary" id="stopBatchBtn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="6" width="12" height="12" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                중지
+            </button>
+        </div>
+
+        <!-- 진행 상황 -->
+        <div class="progress-section" id="progressSection" hidden>
+            <div class="progress-header">
+                <h3>처리 진행 중</h3>
+                <div class="progress-stats">
+                    <span class="stat-item"><strong id="processedCount">0</strong> / <span id="totalCount">0</span></span>
+                    <span class="stat-item"><span id="progressPercent">0</span>%</span>
+                    <span class="stat-item" id="estimatedTime">예상 시간: 계산 중...</span>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="current-file">
+                <span>현재 파일:</span>
+                <span id="currentFileName">-</span>
+            </div>
+        </div>
+
+        <!-- 결과 영역 -->
+        <div class="result-section" id="resultSection" hidden>
+            <div class="result-header">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.709 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85781 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.85999" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    처리 완료
+                </h3>
+                <div class="result-stats">
+                    <span class="stat-badge stat-success">
+                        성공 <strong id="successCount">0</strong>개
+                    </span>
+                    <span class="stat-badge stat-error">
+                        실패 <strong id="errorCount">0</strong>개
+                    </span>
+                    <span class="stat-badge stat-time">
+                        소요 시간 <strong id="elapsedTime">0</strong>초
+                    </span>
+                </div>
+            </div>
+
+            <!-- 결과 목록 -->
+            <div class="result-table-container">
+                <table class="result-table">
+                    <thead>
+                        <tr>
+                            <th>파일명</th>
+                            <th>상태</th>
+                            <th>KEY 수</th>
+                            <th>VALUE 수</th>
+                            <th>처리 시간</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody">
+                        <!-- 결과 행들이 동적으로 추가됨 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 사용법 -->
+        <div class="help-card">
+            <h4>📖 사용법</h4>
+            <ol>
+                <li><strong>이미지 폴더</strong>: 클릭하여 처리할 이미지들이 있는 폴더 선택</li>
+                <li><strong>어노테이션 JSON</strong>: 수동 맵핑 결과 JSON 파일 업로드 (템플릿으로 사용)</li>
+                <li><strong>물류 OCR 폴더</strong>: 클릭하여 물류 OCR JSON 파일들이 있는 폴더 선택</li>
+                <li><strong>PaddleOCR 폴더</strong>: 클릭하여 PaddleOCR JSON 파일들이 있는 폴더 선택</li>
+                <li><strong>일괄 처리 시작</strong>: 버튼을 클릭하여 자동 처리 시작</li>
+                <li><strong>결과 다운로드</strong>: 처리 완료 후 ZIP 파일로 다운로드</li>
+            </ol>
+            <div class="help-note">
+                💡 <strong>파일명 매칭:</strong> 이미지 파일명과 동일한 이름의 PaddleOCR, 물류OCR JSON 파일을 자동으로 찾아 처리합니다.<br>
+                예: <code>image1.jpg</code> → <code>image1.json</code> (PaddleOCR), <code>image1.json</code> (물류OCR) → <code>image1.json</code> (출력)
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.DEFAULT_DATA_PATH = "{{ default_data_path }}";
+</script>
+<script src="{{ url_for('static', filename='js/keyvalue_batch.js') }}"></script>
+{% endblock %}
