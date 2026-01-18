@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}CLIP 이미지 분류기 - Labelling Programs{% endblock %}
+{% block title %}CLIP 이미지 분류기{% endblock %}
 
-{% block header_subtitle %}CLIP 이미지 분류기 - AI 기반 유사도 분석 및 자동 분류{% endblock %}
+{% block header_title %}🔍 CLIP 이미지 분류기{% endblock %}
+
+{% block header_subtitle %}AI 기반 유사도 분석 및 자동 분류{% endblock %}
 
 {% block head_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -69,8 +71,10 @@
                 </svg>
                 비교할 폴더 경로 (서버)
             </label>
-            <input type="text" id="folderPath" placeholder="예: /home/user/images 또는 ~/dataset">
-            <p class="path-hint">서버에 있는 이미지 폴더 경로 (하위 폴더 포함)</p>
+            <input type="text" id="folderPath" placeholder="예: /home/user/images">
+            <p class="path-hint">
+                예: <code>/home/user/images</code>
+            </p>
         </div>
     </div>
 
@@ -84,8 +88,10 @@
             </svg>
             분류 대상 폴더 경로 (서버)
         </label>
-        <input type="text" id="targetFolder" placeholder="예: /home/user/classified 또는 ~/output">
-        <p class="path-hint">임계치 이상의 유사 이미지를 복사/이동할 폴더 경로</p>
+        <input type="text" id="targetFolder" placeholder="예: /home/user/output/분류결과">
+        <p class="path-hint">
+                예: <code>/home/user/output</code> (없으면 자동 생성)
+        </p>
     </div>
 </section>
 
@@ -99,8 +105,10 @@
             </svg>
             비교할 폴더 경로 (서버)
         </label>
-        <input type="text" id="multiFolderPath" placeholder="예: /home/user/images 또는 ~/dataset">
-        <p class="path-hint">서버에 있는 이미지 폴더 경로 (하위 폴더 포함)</p>
+        <input type="text" id="multiFolderPath" placeholder="예: /home/user/images">
+        <p class="path-hint">
+                예: <code>/home/user/images</code>
+        </p>
     </div>
 
     <!-- 기준 이미지 목록 -->
@@ -121,48 +129,18 @@
                 기준 이미지 추가
             </button>
         </div>
-        <p class="multi-ref-hint">각 기준 이미지와 유사한 이미지들이 해당 폴더로 자동 분류됩니다. 비교 이미지 임베딩은 <strong>한 번만</strong> 계산됩니다!</p>
+        <div class="multi-ref-hint">
+            <p><strong>📋 분류 방식:</strong> 각 비교 이미지는 가장 높은 유사도를 보이는 기준 이미지의 폴더로 <strong>중복 없이</strong> 분류됩니다.</p>
+            <p style="margin-top: 0.5rem; font-size: 0.9em; color: var(--text-muted);">
+                예: 이미지A가 기준1과 80%, 기준2와 60% 유사 → 기준1 폴더로 분류
+            </p>
+        </div>
         
         <div class="ref-images-list" id="refImagesList">
             <!-- 기준 이미지 카드들이 여기에 추가됨 -->
         </div>
     </div>
 
-    <!-- 분류 모드 선택 -->
-    <div class="classify-mode-card">
-        <label>분류 방식</label>
-        <div class="classify-mode-options">
-            <label class="radio-card">
-                <input type="radio" name="classifyMode" value="best_match" checked>
-                <div class="radio-card-content">
-                    <div class="radio-card-icon">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                    <div class="radio-card-text">
-                        <strong>최고 유사도 분류</strong>
-                        <span>각 이미지를 가장 유사한 기준 이미지의 폴더로 분류</span>
-                    </div>
-                </div>
-            </label>
-            <label class="radio-card">
-                <input type="radio" name="classifyMode" value="threshold">
-                <div class="radio-card-content">
-                    <div class="radio-card-icon">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M16 4H18C18.5304 4 19.0391 4.21071 19.4142 4.58579C19.7893 4.96086 20 5.46957 20 6V20C20 20.5304 19.7893 21.0391 19.4142 21.4142C19.0391 21.7893 18.5304 22 18 22H6C5.46957 22 4.96086 21.7893 4.58579 21.4142C4.21071 21.0391 4 20.5304 4 20V6C4 5.46957 4.21071 4.96086 4.58579 4.58579C4.96086 4.21071 5.46957 4 6 4H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <rect x="8" y="2" width="8" height="4" rx="1" stroke="currentColor" stroke-width="2"/>
-                        </svg>
-                    </div>
-                    <div class="radio-card-text">
-                        <strong>임계치 분류</strong>
-                        <span>각 기준별 임계치를 모두 적용, 만족하는 것 중 최고 폴더로</span>
-                    </div>
-                </div>
-            </label>
-        </div>
-    </div>
 </section>
 
 <!-- 컨트롤 섹션 -->
@@ -398,7 +376,7 @@
                 </svg>
                 분류 대상 폴더
             </label>
-            <input type="text" class="ref-folder" placeholder="예: ~/output/category_A">
+            <input type="text" class="ref-folder" placeholder="/home/user/output/카테고리A">
         </div>
         <div class="ref-threshold-control">
             <label>

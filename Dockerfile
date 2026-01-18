@@ -1,7 +1,7 @@
 # Labelling Programs Docker 이미지
 # GPU 지원을 위한 CUDA 베이스 이미지 사용
 
-FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
 
 WORKDIR /app
 
@@ -17,6 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
+# PaddlePaddle GPU 설치 (CUDA 11.8용)
+RUN python -m pip install paddlepaddle-gpu==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
+
+# PaddleOCR 설치
+RUN python -m pip install paddleocr
+
 # Python 패키지 설치
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -24,6 +30,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 애플리케이션 코드 복사
 COPY app.py .
 COPY models/ models/
+COPY routes/ routes/
 COPY templates/ templates/
 COPY static/ static/
 
@@ -33,5 +40,8 @@ RUN mkdir -p uploads
 # 포트 노출
 EXPOSE 5000
 
-# 서버 실행
-CMD ["python", "app.py"]
+# Gunicorn 설정 파일 복사
+COPY gunicorn.conf.py .
+
+# 서버 실행 (Gunicorn 사용)
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]

@@ -2,5 +2,6 @@
 # 라벨링 프로그램에서 사용하는 모델들
 
 from .clip_classifier import CLIPClassifier
+from .ocr_extractor import OCRExtractor
 
-__all__ = ['CLIPClassifier']
+__all__ = ['CLIPClassifier', 'OCRExtractor']

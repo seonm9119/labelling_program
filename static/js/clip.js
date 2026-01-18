@@ -321,6 +321,9 @@ function addRefImage() {
         }
     });
     
+    // 폴더 브라우저 버튼 연결
+    setupRefCardBrowseButton(card, index);
+    
     refImagesList.appendChild(card);
     updateRefCardNumbers();
     updateButtonStates();
@@ -458,7 +461,7 @@ async function handleMultiAnalyze() {
         return;
     }
 
-    const classifyMode = document.querySelector('input[name="classifyMode"]:checked').value;
+    const classifyMode = 'best_match';  // 최고 유사도 분류만 사용
 
     analyzeBtn.disabled = true;
     showProgressSection('기준 이미지 처리 중...');
@@ -504,19 +507,38 @@ async function handleMultiAnalyze() {
 }
 
 // Progress Polling
+let pollRetryCount = 0;
+const MAX_POLL_RETRIES = 5;
+
 function pollProgress(taskId, mode) {
     if (pollInterval) {
         clearInterval(pollInterval);
     }
+    
+    pollRetryCount = 0;
 
     const endpoint = mode === 'single' 
         ? `/analyze/progress/${taskId}`
         : `/multi-analyze/progress/${taskId}`;
 
-    pollInterval = setInterval(async () => {
+    const doPoll = async () => {
         try {
-            const response = await fetch(endpoint);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30초 타임아웃
+            
+            const response = await fetch(endpoint, {
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
             const data = await response.json();
+            
+            // 성공시 재시도 카운트 리셋
+            pollRetryCount = 0;
 
             if (data.error && data.status !== 'error') {
                 throw new Error(data.error);
@@ -564,13 +586,30 @@ function pollProgress(taskId, mode) {
             }
 
         } catch (error) {
+            pollRetryCount++;
+            console.warn(`[Polling] 오류 발생 (${pollRetryCount}/${MAX_POLL_RETRIES}):`, error.message);
+            
+            // 연결 오류는 재시도
+            if (pollRetryCount < MAX_POLL_RETRIES && 
+                (error.name === 'AbortError' || error.message.includes('fetch') || error.message.includes('network'))) {
+                console.log('[Polling] 재시도 대기 중...');
+                // 재시도 간격 증가 (백오프)
+                return;
+            }
+            
             clearInterval(pollInterval);
             pollInterval = null;
             alert('분석 중 오류가 발생했습니다: ' + error.message);
             hideProgressSection();
             updateButtonStates();
         }
-    }, 500);
+    };
+    
+    // 즉시 첫 번째 폴링 실행
+    doPoll();
+    
+    // 1초 간격으로 폴링 (기존 500ms에서 증가)
+    pollInterval = setInterval(doPoll, 1000);
 }
 
 // ============================================
@@ -699,10 +738,10 @@ async function handleMultiClassify() {
         return;
     }
 
-    const classifyMode = document.querySelector('input[name="classifyMode"]:checked').value;
+    const classifyMode = 'best_match';  // 최고 유사도 분류만 사용
     const moveMode = document.querySelector('input[name="moveMode"]:checked').value;
     
-    const action = (moveMode === 'move' && classifyMode === 'best_match') ? '이동' : '복사';
+    const action = moveMode === 'move' ? '이동' : '복사';
     
     // Get individual thresholds from refImages
     const validRefs = getValidRefImages();
@@ -719,11 +758,7 @@ async function handleMultiClassify() {
         return;
     }
 
-    const modeText = classifyMode === 'best_match' 
-        ? '최고 유사도 기준으로' 
-        : '임계치 이상 모든 폴더로';
-
-    if (!confirm(`${totalAbove}개의 이미지를 ${modeText} ${action}하시겠습니까?`)) {
+    if (!confirm(`${totalAbove}개의 이미지를 최고 유사도 기준으로 ${action}하시겠습니까?`)) {
         return;
     }
 
@@ -1167,30 +1202,16 @@ function switchRefTab(refName) {
 function getMultiAboveThresholdCountIndividual() {
     if (!multiAnalysisData) return 0;
     
-    const validRefs = getValidRefImages();
     let totalAbove = 0;
     
-    const classifyMode = document.querySelector('input[name="classifyMode"]:checked').value;
-    
-    if (classifyMode === 'best_match') {
-        multiAnalysisData.allResults.forEach(item => {
-            const refIdx = multiAnalysisData.referenceImages.findIndex(r => r.name === item.bestMatch.refName);
-            const refThreshold = refImages[refIdx] ? refImages[refIdx].threshold : 70;
-            if (item.bestMatch.similarity >= refThreshold) {
-                totalAbove++;
-            }
-        });
-    } else {
-        multiAnalysisData.allResults.forEach(item => {
-            item.allSimilarities.forEach(sim => {
-                const refIdx = multiAnalysisData.referenceImages.findIndex(r => r.name === sim.refName);
-                const refThreshold = refImages[refIdx] ? refImages[refIdx].threshold : 70;
-                if (sim.similarity >= refThreshold) {
-                    totalAbove++;
-                }
-            });
-        });
-    }
+    // 최고 유사도 분류만 사용
+    multiAnalysisData.allResults.forEach(item => {
+        const refIdx = multiAnalysisData.referenceImages.findIndex(r => r.name === item.bestMatch.refName);
+        const refThreshold = refImages[refIdx] ? refImages[refIdx].threshold : 70;
+        if (item.bestMatch.similarity >= refThreshold) {
+            totalAbove++;
+        }
+    });
     
     return totalAbove;
 }
@@ -1363,3 +1384,228 @@ function clearResults() {
     }
     multiCharts = {};
 }
+
+// ============================================
+// 폴더 브라우저
+// ============================================
+
+let folderBrowserTarget = null;
+let currentBrowserPath = '/host/mnt/d';
+let selectedFolderPath = null;
+
+function setupFolderBrowser() {
+    // 찾기 버튼들 이벤트
+    document.querySelectorAll('.btn-browse').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.dataset.target;
+            openFolderBrowser(targetId);
+        });
+    });
+
+    // 모달 닫기
+    const closeBrowserBtn = document.getElementById('closeFolderBrowser');
+    const cancelBtn = document.getElementById('cancelFolderSelect');
+    if (closeBrowserBtn) closeBrowserBtn.addEventListener('click', closeFolderBrowser);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeFolderBrowser);
+
+    // 폴더 선택 확인
+    const confirmBtn = document.getElementById('confirmFolderSelect');
+    if (confirmBtn) confirmBtn.addEventListener('click', confirmFolderSelection);
+
+    // 상위 폴더 버튼
+    const pathUpBtn = document.getElementById('pathUpBtn');
+    if (pathUpBtn) pathUpBtn.addEventListener('click', goToParentFolder);
+
+    // 모달 바깥 클릭 시 닫기
+    const modal = document.getElementById('folderBrowserModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeFolderBrowser();
+        });
+    }
+}
+
+function openFolderBrowser(targetId) {
+    folderBrowserTarget = targetId;
+    selectedFolderPath = null;
+    currentBrowserPath = '/host/mnt/d';
+    
+    const modal = document.getElementById('folderBrowserModal');
+    if (modal) modal.hidden = false;
+    
+    loadFolderContents(currentBrowserPath);
+}
+
+function closeFolderBrowser() {
+    const modal = document.getElementById('folderBrowserModal');
+    if (modal) modal.hidden = true;
+    folderBrowserTarget = null;
+    selectedFolderPath = null;
+}
+
+async function loadFolderContents(path) {
+    const folderList = document.getElementById('folderList');
+    const pathInput = document.getElementById('currentPathInput');
+    
+    if (!folderList) return;
+    
+    folderList.innerHTML = '';
+    folderList.classList.add('loading');
+    
+    try {
+        const response = await fetch('/batch/browse-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: path })
+        });
+        
+        const data = await response.json();
+        
+        folderList.classList.remove('loading');
+        
+        if (data.error) {
+            folderList.innerHTML = `<div class="folder-browser-empty">❌ ${data.error}</div>`;
+            return;
+        }
+        
+        currentBrowserPath = data.currentPath;
+        if (pathInput) pathInput.value = currentBrowserPath;
+        
+        if (!data.items || data.items.length === 0) {
+            folderList.innerHTML = '<div class="folder-browser-empty">📭 폴더가 비어있습니다</div>';
+            return;
+        }
+        
+        data.items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'folder-item';
+            div.dataset.path = item.path;
+            
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'folder-icon';
+            iconSpan.textContent = '📁';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'folder-name';
+            nameSpan.textContent = item.name;
+            
+            div.appendChild(iconSpan);
+            div.appendChild(nameSpan);
+            
+            div.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 선택 토글
+                document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('selected'));
+                div.classList.add('selected');
+                selectedFolderPath = item.path;
+            });
+            
+            div.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                // 더블클릭: 폴더 진입
+                loadFolderContents(item.path);
+            });
+            
+            folderList.appendChild(div);
+        });
+        
+    } catch (error) {
+        folderList.classList.remove('loading');
+        folderList.innerHTML = `<div class="folder-browser-empty">❌ 오류: ${error.message}</div>`;
+    }
+}
+
+function goToParentFolder() {
+    if (currentBrowserPath === '/' || currentBrowserPath === '/host') {
+        return;
+    }
+    const parentPath = currentBrowserPath.split('/').slice(0, -1).join('/') || '/';
+    loadFolderContents(parentPath);
+}
+
+function confirmFolderSelection() {
+    const pathToUse = selectedFolderPath || currentBrowserPath;
+    
+    if (!pathToUse) {
+        alert('폴더를 선택해주세요.');
+        return;
+    }
+    
+    if (folderBrowserTarget) {
+        const targetInput = document.getElementById(folderBrowserTarget);
+        if (targetInput) {
+            targetInput.value = pathToUse;
+            targetInput.dispatchEvent(new Event('input'));
+        }
+    }
+    
+    closeFolderBrowser();
+    updateButtonStates();
+}
+
+// ref 카드 폴더 브라우저 연결
+function setupRefCardBrowseButton(card, index) {
+    const browseBtn = card.querySelector('.btn-browse-small');
+    const folderInput = card.querySelector('.ref-folder');
+    
+    if (browseBtn && folderInput) {
+        browseBtn.addEventListener('click', () => {
+            openRefFolderBrowser(index, folderInput);
+        });
+    }
+}
+
+let refFolderBrowserCallback = null;
+
+function openRefFolderBrowser(index, inputElement) {
+    selectedFolderPath = null;
+    currentBrowserPath = '/host/mnt/d';
+    
+    refFolderBrowserCallback = (path) => {
+        inputElement.value = path;
+        refImages[index].folder = path;
+        updateButtonStates();
+    };
+    
+    const modal = document.getElementById('folderBrowserModal');
+    if (modal) modal.hidden = false;
+    
+    // 임시로 folderBrowserTarget을 null로 설정하고 콜백 사용
+    folderBrowserTarget = null;
+    
+    loadFolderContents(currentBrowserPath);
+}
+
+// confirmFolderSelection 함수 수정
+const originalConfirmFolderSelection = confirmFolderSelection;
+confirmFolderSelection = function() {
+    const pathToUse = selectedFolderPath || currentBrowserPath;
+    
+    if (!pathToUse) {
+        alert('폴더를 선택해주세요.');
+        return;
+    }
+    
+    if (refFolderBrowserCallback) {
+        refFolderBrowserCallback(pathToUse);
+        refFolderBrowserCallback = null;
+        closeFolderBrowser();
+        return;
+    }
+    
+    if (folderBrowserTarget) {
+        const targetInput = document.getElementById(folderBrowserTarget);
+        if (targetInput) {
+            targetInput.value = pathToUse;
+            targetInput.dispatchEvent(new Event('input'));
+        }
+    }
+    
+    closeFolderBrowser();
+    updateButtonStates();
+};
+
+// 초기화 시 폴더 브라우저 설정
+document.addEventListener('DOMContentLoaded', () => {
+    setupFolderBrowser();
+});
