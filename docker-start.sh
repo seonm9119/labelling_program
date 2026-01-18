@@ -117,13 +117,13 @@ case "${1:-auto}" in
         exit 0
         ;;
     rebuild)
-        echo "[재빌드] 캐시 없이 처음부터 빌드..."
-        docker compose build --no-cache
+        echo "[재빌드] 기존 이미지 캐시 사용하여 빌드..."
+        docker compose build labelling
         exit 0
         ;;
     *)
-        # GPU 모드로 실행 (빌드 + 실행)
-        docker compose up -d --build labelling-dev
+        # 실행 (기존 이미지 캐시 사용하여 빌드 + 실행)
+        docker compose up -d --build labelling
         ;;
 esac
 
