@@ -10,6 +10,13 @@ let selectedImageFile = null;
 let extractedTextData = null;
 let currentTaskId = null;
 let progressInterval = null;
+// 대용량 처리 경로 저장 (자동 재시작용)
+let savedBatchPaths = {
+    folderPath: null,
+    outputFolder: null
+};
+// 자동 재시작 횟수 추적
+let autoRestartCount = 0;
 
 // Pan & Zoom 상태
 let currentZoom = 1;
@@ -594,6 +601,10 @@ async function extractBatch() {
     
     if (!folderPath || !outputPath) return;
     
+    // 경로 저장 (자동 재시작용)
+    savedBatchPaths.folderPath = folderPath;
+    savedBatchPaths.outputFolder = outputPath;
+    
     // 버튼 상태 변경
     elements.batchExtractBtn.disabled = true;
     elements.batchExtractBtn.innerHTML = '<span class="spinner"></span> 시작 중...';
@@ -617,8 +628,12 @@ async function extractBatch() {
         
         currentTaskId = result.taskId;
         
+        // 재시작 횟수 초기화 (새 작업 시작 시)
+        autoRestartCount = 0;
+        
         // 진행 상황 모니터링 시작
         elements.progressSection.hidden = false;
+        elements.progressTitle.style.color = ''; // 색상 초기화
         startProgressPolling();
         
     } catch (error) {
@@ -640,22 +655,116 @@ function startProgressPolling() {
             // 진행 상황 업데이트
             updateProgress(task);
             
-            if (task.status === 'completed' || task.status === 'error') {
+            // 타임아웃 감지 및 자동 재시작 (확인 없이 자동 재시작)
+            if (task.status === 'timeout') {
+                autoRestartCount++;
+                console.warn(`[OCR 타임아웃] 처리 중 멈춘 것으로 감지됨, 자동 재시작 시도... (재시작 횟수: ${autoRestartCount})`);
+                const current = task.current || 0;
+                const total = task.total || 0;
+                
+                // UI에 재시작 정보 표시
+                elements.progressTitle.textContent = `⚠️ 타임아웃 감지 - 자동 재시작 중... (${autoRestartCount}회차, 진행: ${current}/${total})`;
+                elements.progressTitle.style.color = '#f59e0b'; // 주황색으로 표시
+                
+                console.log(`[OCR 자동 재시작] 현재 진행: ${current}/${total}, 현재 위치(${current}번째 파일)부터 재시작`);
                 stopProgressPolling();
-                
-                if (task.status === 'completed') {
-                    displayBatchResult(task);
-                } else {
-                    alert('오류: ' + (task.error || '처리 중 오류가 발생했습니다.'));
-                }
-                
+                await autoResumeTask(currentTaskId);
+                return;
+            }
+            
+            if (task.status === 'completed') {
+                stopProgressPolling();
+                displayBatchResult(task);
                 resetBatchUI();
+            } else if (task.status === 'error') {
+                // 오류 발생 시 자동 재시작
+                autoRestartCount++;
+                console.warn(`[OCR 오류] 처리 중 오류 발생, 자동 재시작 시도... (재시작 횟수: ${autoRestartCount})`);
+                const current = task.current || 0;
+                const total = task.total || 0;
+                const errorMsg = task.error || '처리 중 오류가 발생했습니다.';
+                
+                // UI에 재시작 정보 표시
+                elements.progressTitle.textContent = `⚠️ 오류 발생 - 자동 재시작 중... (${autoRestartCount}회차, 진행: ${current}/${total})`;
+                elements.progressTitle.style.color = '#ef4444'; // 빨간색으로 표시
+                
+                console.log(`[OCR 자동 재시작] 오류: ${errorMsg}, 현재 위치(${current}번째 파일)부터 재시작`);
+                stopProgressPolling();
+                await autoResumeTask(currentTaskId);
+                return;
             }
             
         } catch (error) {
             console.error('Progress polling error:', error);
         }
     }, 500);
+}
+
+async function autoResumeTask(taskId) {
+    try {
+        elements.progressSection.hidden = false;
+        elements.progressTitle.textContent = 'OCR 자동 재시작 중... (타임아웃 감지)';
+        
+        // 먼저 기존 작업 재시작 시도
+        let response = await fetch(`/ocr/batch/resume/${taskId}`, {
+            method: 'POST'
+        });
+        
+        let result = await response.json();
+        
+        // 재시작 실패 시 (작업이 완전히 사라진 경우), 저장된 경로로 새로 시작
+        if (!response.ok) {
+            console.warn('[OCR 재시작 실패] 저장된 경로로 새 작업 시작:', result.error);
+            
+            if (savedBatchPaths.folderPath && savedBatchPaths.outputFolder) {
+                console.log('[OCR 자동 재시작] 저장된 경로로 새 작업 시작:', savedBatchPaths);
+                
+                response = await fetch('/ocr/batch/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        folderPath: savedBatchPaths.folderPath,
+                        outputFolder: savedBatchPaths.outputFolder,
+                        engine: 'paddleocr'
+                    })
+                });
+                
+                result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || '새 작업 시작 실패');
+                }
+                
+                currentTaskId = result.taskId;
+                console.log('[OCR 자동 재시작] 새 작업 시작 성공, Task ID:', currentTaskId);
+            } else {
+                throw new Error('저장된 경로 정보가 없습니다. 수동으로 재시작해주세요.');
+            }
+        } else {
+            console.log('[OCR 자동 재시작] 기존 작업 재시작 성공:', result.message);
+        }
+        
+        // 재시작 성공 시 UI 업데이트
+        elements.progressTitle.textContent = `✅ 자동 재시작 완료 - OCR 처리 중... (재시작 ${autoRestartCount}회)`;
+        elements.progressTitle.style.color = '#10b981'; // 녹색으로 표시
+        // 3초 후 원래 색상으로 복귀
+        setTimeout(() => {
+            elements.progressTitle.style.color = '';
+        }, 3000);
+        
+        startProgressPolling();
+        
+    } catch (error) {
+        console.error('[OCR 자동 재시작 오류]', error);
+        elements.progressTitle.textContent = 'OCR 자동 재시작 실패: ' + error.message;
+        // 실패해도 계속 시도 (5분 후 다시 시도)
+        setTimeout(() => {
+            if (currentTaskId) {
+                console.log('[OCR 자동 재시작] 재시도...');
+                autoResumeTask(currentTaskId);
+            }
+        }, 300000); // 5분 후 재시도
+    }
 }
 
 function stopProgressPolling() {
@@ -670,7 +779,13 @@ function updateProgress(task) {
     elements.progressTotal.textContent = task.total || 0;
     elements.progressPercent.textContent = task.percent || 0;
     elements.progressFill.style.width = `${task.percent || 0}%`;
-    elements.progressTitle.textContent = `OCR 처리 중... (${task.current}/${task.total})`;
+    
+    // 재시작 횟수가 있으면 표시
+    if (autoRestartCount > 0) {
+        elements.progressTitle.textContent = `OCR 처리 중... (${task.current}/${task.total}) - 자동 재시작 ${autoRestartCount}회`;
+    } else {
+        elements.progressTitle.textContent = `OCR 처리 중... (${task.current}/${task.total})`;
+    }
 }
 
 function displayBatchResult(task) {
