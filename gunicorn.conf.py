@@ -13,8 +13,8 @@ workers = 1
 # 스레드 수 - 동시 요청 처리용
 threads = 4
 
-# 워커 클래스 - gevent로 비동기 처리
-worker_class = "gevent"
+# 워커 클래스 - sync로 변경 (CUDA와 gevent 충돌 방지)
+worker_class = "sync"
 
 # 타임아웃 설정 (초)
 # GPU 배치 처리에 충분한 시간 확보
@@ -36,8 +36,8 @@ errorlog = "-"
 loglevel = "info"
 access_log_format = '%(h)s - %(r)s - %(s)s - %(b)s - %(T)ss'
 
-# 프리로드 앱 (모델 로딩을 한 번만)
-preload_app = True
+# 프리로드 앱 비활성화 (CUDA fork 문제 방지)
+preload_app = False
 
 # 워커 시작 시 출력
 def on_starting(server):

@@ -231,7 +231,7 @@ def analyze_progress(task_id):
     
     if task['status'] == 'complete':
         similarities = task['similarities']
-        response['similarities'] = similarities[:1000]  # 상위 1000개 (UI 표시용)
+        response['similarities'] = similarities  # 전체 결과 (제한 없음)
         response['totalCount'] = len(similarities)
         response['failedCount'] = task.get('failed_count', 0)
         response['stats'] = task['stats']
@@ -263,9 +263,11 @@ def multi_analyze_start():
         folder_path = os.path.expanduser(folder_path)
         
         if not folder_path:
+            print(f"[에러] 비교할 폴더 경로가 필요합니다.")
             return jsonify({'error': '비교할 폴더 경로가 필요합니다.'}), 400
         
         if not os.path.exists(folder_path):
+            print(f"[에러] 폴더를 찾을 수 없습니다: {folder_path}")
             return jsonify({'error': f'폴더를 찾을 수 없습니다: {folder_path}'}), 400
         
         # 분류 모드
@@ -307,12 +309,14 @@ def multi_analyze_start():
             idx += 1
         
         if not reference_images:
+            print(f"[에러] 최소 1개의 기준 이미지가 필요합니다.")
             return jsonify({'error': '최소 1개의 기준 이미지가 필요합니다.'}), 400
         
         # 폴더 내 이미지 파일 목록
         image_files = CLIPClassifier.get_image_files(folder_path)
         
         if not image_files:
+            print(f"[에러] 폴더에 이미지 파일이 없습니다: {folder_path}")
             return jsonify({'error': '폴더에 이미지 파일이 없습니다.'}), 400
         
         # 작업 초기화
@@ -418,11 +422,16 @@ def classify():
         
         moved_files = []
         errors = []
+        moved_file_paths = set()  # 이미 이동된 파일 경로 추적
         
         for item in similarities:
             if item['similarity'] >= threshold:
                 src_path = item['path']
                 filename = item['filename']
+                
+                # 이미 이동된 파일인지 확인
+                if src_path in moved_file_paths:
+                    continue  # 이미 이동된 파일은 건너뛰기 (오류로 카운트하지 않음)
                 
                 if os.path.exists(src_path):
                     dst_path = os.path.join(target_folder, filename)
@@ -446,12 +455,22 @@ def classify():
                             'destination': dst_path,
                             'similarity': item['similarity']
                         })
+                        moved_file_paths.add(src_path)  # 이동된 파일 경로 기록
                     except Exception as e:
+                        error_msg = str(e)
+                        print(f"[분류 오류] 파일: {filename}, 원인: {error_msg}")
                         errors.append({
                             'file': filename,
-                            'error': str(e)
+                            'error': error_msg
                         })
                 else:
+                    # 파일이 없지만, 이미 이동된 파일일 가능성 확인
+                    if os.path.exists(os.path.join(target_folder, filename)):
+                        print(f"[분류] 파일: {filename}, 이미 이동됨 (중복 이동 시도 무시)")
+                        moved_file_paths.add(src_path)
+                        continue  # 이미 이동된 파일은 오류로 카운트하지 않음
+                    
+                    print(f"[분류 오류] 파일: {filename}, 원인: 파일이 존재하지 않습니다.")
                     errors.append({
                         'file': filename,
                         'error': '파일이 존재하지 않습니다.'
@@ -515,13 +534,32 @@ def multi_classify():
         moved_files = []
         errors = []
         results_by_ref = {ref['name']: [] for ref in reference_images}
+        moved_file_paths = set()  # 이미 이동된 파일 경로 추적
         
         for item in all_results:
             best_match = item['bestMatch']
             src_path = item['path']
             filename = item['filename']
             
+            # 이미 이동된 파일인지 확인
+            if src_path in moved_file_paths:
+                continue  # 이미 이동된 파일은 건너뛰기 (오류로 카운트하지 않음)
+            
             if not os.path.exists(src_path):
+                # 파일이 없지만, 이미 이동된 파일일 가능성 확인
+                already_moved = False
+                for ref in reference_images:
+                    target_folder = os.path.expanduser(ref['targetFolder'])
+                    if target_folder and os.path.exists(os.path.join(target_folder, filename)):
+                        already_moved = True
+                        moved_file_paths.add(src_path)
+                        break
+                
+                if already_moved:
+                    print(f"[다중 분류] 파일: {filename}, 이미 이동됨 (중복 이동 시도 무시)")
+                    continue  # 이미 이동된 파일은 오류로 카운트하지 않음
+                
+                print(f"[다중 분류 오류] 파일: {filename}, 원인: 파일이 존재하지 않습니다.")
                 errors.append({
                     'file': filename,
                     'error': '파일이 존재하지 않습니다.'
@@ -565,10 +603,13 @@ def multi_classify():
                     }
                     moved_files.append(move_info)
                     results_by_ref[best_match['refName']].append(move_info)
+                    moved_file_paths.add(src_path)  # 이동된 파일 경로 기록
                 except Exception as e:
+                    error_msg = str(e)
+                    print(f"[다중 분류 오류] 파일: {filename}, 기준: {best_match['refName']}, 원인: {error_msg}")
                     errors.append({
                         'file': filename,
-                        'error': str(e)
+                        'error': error_msg
                     })
             
             else:  # threshold mode
@@ -613,11 +654,14 @@ def multi_classify():
                     }
                     moved_files.append(move_info)
                     results_by_ref[best_qualified['refName']].append(move_info)
+                    moved_file_paths.add(src_path)  # 이동된 파일 경로 기록
                 except Exception as e:
+                    error_msg = str(e)
+                    print(f"[다중 분류 오류] 파일: {filename}, 기준: {best_qualified['refName']}, 원인: {error_msg}")
                     errors.append({
                         'file': filename,
                         'refName': best_qualified['refName'],
-                        'error': str(e)
+                        'error': error_msg
                     })
         
         action = "이동" if move_mode == 'move' else "복사"

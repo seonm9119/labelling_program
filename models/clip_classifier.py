@@ -9,6 +9,9 @@ from PIL import Image
 import clip
 import numpy as np
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from queue import Queue
 
 
 class CLIPClassifier:
@@ -72,14 +75,14 @@ class CLIPClassifier:
         # CLIP ViT-B/32 기준:
         # - 모델 자체: ~400MB
         # - 이미지당: ~3MB (전처리 + 추론)
-        # - 안전 마진: 40% VRAM만 사용
-        available_for_batch = (total_gb - 1.0) * 0.4  # GB
+        # - 안전 마진: 50% VRAM 사용 (12GB면 충분)
+        available_for_batch = (total_gb - 1.0) * 0.5  # GB
         
         # 이미지당 약 3MB 예상
         optimal_size = int(available_for_batch * 1024 / 3)
         
-        # 범위 제한: 최소 8, 최대 256
-        optimal_size = max(8, min(256, optimal_size))
+        # 범위 제한: 최소 8, 최대 768 (12GB VRAM 기준, 더 큰 배치로 속도 향상)
+        optimal_size = max(8, min(768, optimal_size))
         
         # 8의 배수로 조정
         optimal_size = (optimal_size // 8) * 8
@@ -97,8 +100,9 @@ class CLIPClassifier:
     def calculate_similarity(self, embedding1, embedding2):
         """두 임베딩 간의 코사인 유사도를 계산합니다."""
         # 두 텐서를 같은 장치로 이동 (CPU에서 계산 - 메모리 효율적)
-        e1 = embedding1.cpu() if embedding1.is_cuda else embedding1
-        e2 = embedding2.cpu() if embedding2.is_cuda else embedding2
+        # Half precision (float16)은 CPU에서 지원하지 않으므로 float32로 변환
+        e1 = embedding1.cpu().float() if embedding1.is_cuda else embedding1.float()
+        e2 = embedding2.cpu().float() if embedding2.is_cuda else embedding2.float()
         similarity = (e1 @ e2.T).item()
         return similarity
     
@@ -121,23 +125,115 @@ class CLIPClassifier:
         
         print(f"[배치 처리 시작] 총 {len(image_paths)}개 이미지, 배치 사이즈: {self.current_batch_size}", flush=True)
         
+        # 배치 오버랩을 위한 프리페칭 큐
+        prefetch_queue = Queue(maxsize=1)
+        prefetch_thread = None
+        stop_prefetch = threading.Event()
+        
+        def prefetch_next_batch(next_idx):
+            """다음 배치를 미리 로딩"""
+            if next_idx >= len(image_paths):
+                return None
+            
+            next_batch_paths = image_paths[next_idx:next_idx + self.current_batch_size]
+            batch_images = []
+            valid_paths = []
+            
+            def load_image(path):
+                try:
+                    with Image.open(path) as img:
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        processed = self.preprocess(img)
+                    return (path, processed, None)
+                except Exception as e:
+                    return (path, None, e)
+            
+            with ThreadPoolExecutor(max_workers=18) as executor:
+                futures = {executor.submit(load_image, path): path for path in next_batch_paths}
+                for future in as_completed(futures):
+                    if stop_prefetch.is_set():
+                        break
+                    path, processed, error = future.result()
+                    if error:
+                        failed_paths.append(path)
+                    elif processed is not None:
+                        batch_images.append(processed)
+                        valid_paths.append(path)
+            
+            if batch_images and not stop_prefetch.is_set():
+                return (batch_images, valid_paths, next_idx)
+            return None
+        
         while idx < len(image_paths):
             batch_paths = image_paths[idx:idx + self.current_batch_size]
             
             try:
-                # 배치 전처리
-                batch_images = []
-                valid_paths = []
+                # 프리페칭된 배치가 있으면 사용, 없으면 새로 로딩
+                if not prefetch_queue.empty():
+                    prefetched = prefetch_queue.get()
+                    if prefetched:
+                        batch_images, valid_paths, _ = prefetched
+                    else:
+                        # 프리페칭 실패 시 일반 로딩
+                        batch_images = []
+                        valid_paths = []
+                        
+                        def load_image(path):
+                            try:
+                                with Image.open(path) as img:
+                                    if img.mode != 'RGB':
+                                        img = img.convert('RGB')
+                                    processed = self.preprocess(img)
+                                return (path, processed, None)
+                            except Exception as e:
+                                return (path, None, e)
+                        
+                        with ThreadPoolExecutor(max_workers=18) as executor:
+                            futures = {executor.submit(load_image, path): path for path in batch_paths}
+                            for future in as_completed(futures):
+                                path, processed, error = future.result()
+                                if error:
+                                    print(f"[이미지 로드 실패] {path}: {error}")
+                                    failed_paths.append(path)
+                                elif processed is not None:
+                                    batch_images.append(processed)
+                                    valid_paths.append(path)
+                else:
+                    # 일반 로딩
+                    batch_images = []
+                    valid_paths = []
+                    
+                    def load_image(path):
+                        try:
+                            with Image.open(path) as img:
+                                if img.mode != 'RGB':
+                                    img = img.convert('RGB')
+                                processed = self.preprocess(img)
+                            return (path, processed, None)
+                        except Exception as e:
+                            return (path, None, e)
+                    
+                    with ThreadPoolExecutor(max_workers=18) as executor:
+                        futures = {executor.submit(load_image, path): path for path in batch_paths}
+                        for future in as_completed(futures):
+                            path, processed, error = future.result()
+                            if error:
+                                print(f"[이미지 로드 실패] {path}: {error}")
+                                failed_paths.append(path)
+                            elif processed is not None:
+                                batch_images.append(processed)
+                                valid_paths.append(path)
                 
-                for path in batch_paths:
-                    try:
-                        img = Image.open(path).convert("RGB")
-                        processed = self.preprocess(img)
-                        batch_images.append(processed)
-                        valid_paths.append(path)
-                    except Exception as e:
-                        print(f"[이미지 로드 실패] {path}: {e}")
-                        failed_paths.append(path)
+                # 다음 배치 프리페칭 시작 (현재 배치 처리와 병렬)
+                next_idx = idx + len(batch_paths)
+                if next_idx < len(image_paths) and (prefetch_thread is None or not prefetch_thread.is_alive()):
+                    stop_prefetch.clear()
+                    prefetch_thread = threading.Thread(
+                        target=lambda: prefetch_queue.put(prefetch_next_batch(next_idx))
+                    )
+                    prefetch_thread.daemon = True
+                    prefetch_thread.start()
                 
                 if batch_images:
                     # 배치 텐서 생성
@@ -195,6 +291,11 @@ class CLIPClassifier:
                         idx += len(batch_paths)
                 else:
                     raise e
+        
+        # 프리페칭 스레드 종료
+        stop_prefetch.set()
+        if prefetch_thread and prefetch_thread.is_alive():
+            prefetch_thread.join(timeout=1.0)
         
         print(f"[배치 처리 완료] {len(results)}개 성공, {len(failed_paths)}개 실패, 총 {batch_count}개 배치", flush=True)
         
@@ -276,6 +377,7 @@ class CLIPClassifier:
         print(f"[다중 분석] {num_refs}개 기준 이미지 임베딩 계산 중...", flush=True)
         ref_embeddings = []
         for idx, ref in enumerate(reference_images):
+            print(f"[기준 이미지 {idx+1}/{num_refs}] 경로: {ref['path']}", flush=True)
             try:
                 embedding = self.get_image_embedding(ref['path'])
                 ref_embeddings.append({
@@ -283,8 +385,11 @@ class CLIPClassifier:
                     'targetFolder': ref['targetFolder'],
                     'embedding': embedding
                 })
+                print(f"[기준 이미지 {idx+1}/{num_refs}] 임베딩 계산 완료", flush=True)
             except Exception as e:
-                print(f"[에러] 기준 이미지 {ref['name']}: {e}")
+                print(f"[에러] 기준 이미지 {ref['name']}: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
                 ref_embeddings.append(None)
             
             if progress_callback:
@@ -383,9 +488,9 @@ class CLIPClassifier:
         print(f"[다중 분석 완료] {len(all_results)}개 이미지, {len(valid_refs)}개 기준 이미지, 배치: {self.current_batch_size}", flush=True)
         
         return {
-            'allResults': all_results[:2000],  # 상위 2000개 (UI용)
+            'allResults': all_results,  # 전체 결과 (제한 없음)
             'totalCount': len(all_results),
-            'resultsByRef': {k: v[:1000] for k, v in results_by_ref.items()},  # 각 기준별 상위 1000개
+            'resultsByRef': results_by_ref,  # 전체 결과 (제한 없음)
             'statsByRef': stats_by_ref,
             'thresholdCountsByRef': threshold_counts_by_ref,
             'bestMatchThresholdCounts': best_match_threshold_counts,
@@ -405,13 +510,13 @@ class CLIPClassifier:
     
     @staticmethod
     def get_image_files(folder_path):
-        """폴더 내 모든 이미지 파일 경로를 반환합니다."""
+        """폴더 내 이미지 파일 경로를 반환합니다 (하위 폴더 제외)."""
         folder = Path(folder_path)
         if not folder.exists():
             return []
         
         image_files = []
-        for f in folder.rglob('*'):  # 하위 폴더 포함
+        for f in folder.iterdir():  # 해당 폴더만 (하위 폴더 제외)
             if f.is_file() and CLIPClassifier.is_image_file(f.name):
                 image_files.append(str(f))
         return sorted(image_files)

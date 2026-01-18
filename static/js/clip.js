@@ -1204,7 +1204,7 @@ function getMultiAboveThresholdCountIndividual() {
     
     let totalAbove = 0;
     
-    // 최고 유사도 분류만 사용
+    // 전체 결과에서 각 기준 이미지의 임계치를 만족하는 개수 계산
     multiAnalysisData.allResults.forEach(item => {
         const refIdx = multiAnalysisData.referenceImages.findIndex(r => r.name === item.bestMatch.refName);
         const refThreshold = refImages[refIdx] ? refImages[refIdx].threshold : 70;
@@ -1232,6 +1232,7 @@ function updateMultiThresholdDisplay() {
         
         const aboveCountEl = document.getElementById(`refAboveCount${idx}`);
         if (aboveCountEl && multiAnalysisData.thresholdCountsByRef[ref.name]) {
+            // thresholdCountsByRef는 전체 데이터를 기반으로 계산되었으므로 정확함
             const count = multiAnalysisData.thresholdCountsByRef[ref.name][Math.round(refThreshold)] || 0;
             aboveCountEl.textContent = `${count.toLocaleString()}개`;
         }

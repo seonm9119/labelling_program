@@ -20,7 +20,8 @@ services:
       - ~/.cache/clip:/root/.cache/clip
       # 호스트 파일시스템 직접 마운트
       - /home:/home
-      - /data:/data
+      # Windows 드라이브 마운트 (WSL)
+      - /mnt:/mnt
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - FLASK_ENV=development

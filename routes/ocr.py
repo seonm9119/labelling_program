@@ -10,11 +10,48 @@ import uuid
 from flask import Blueprint, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 from pathlib import Path
-
 from models import OCRExtractor
 
 # Blueprint 생성
 ocr_bp = Blueprint('ocr', __name__)
+
+
+def get_image_files_recursive(folder_path: str) -> list:
+    """
+    폴더에서 이미지 파일 목록을 재귀적으로 가져옵니다 (하위 폴더 포함).
+    
+    Args:
+        folder_path: 폴더 경로
+        
+    Returns:
+        List[str]: 이미지 파일 경로 목록
+    """
+    image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
+    folder = Path(folder_path)
+    
+    if not folder.exists():
+        raise FileNotFoundError(f"폴더를 찾을 수 없습니다: {folder_path}")
+    
+    print(f"[OCR 파일 검색] 폴더 검색 시작: {folder_path}", flush=True)
+    image_files = []
+    file_count = 0
+    
+    # 하위 폴더 포함하여 재귀적으로 검색
+    try:
+        for file in folder.rglob('*'):
+            file_count += 1
+            # 1000개마다 진행 상황 출력
+            if file_count % 1000 == 0:
+                print(f"[OCR 파일 검색] {file_count}개 파일 검색 중... (현재 발견: {len(image_files)}개 이미지)", flush=True)
+            
+            if file.is_file() and file.suffix.lower() in image_extensions:
+                image_files.append(str(file))
+    except Exception as e:
+        print(f"[OCR 파일 검색 오류] {file_count}개 파일 검색 중 오류 발생: {str(e)}", flush=True)
+        raise
+    
+    print(f"[OCR 파일 검색] 검색 완료: 총 {file_count}개 파일 중 {len(image_files)}개 이미지 발견", flush=True)
+    return sorted(image_files)
 
 # 임시 업로드 폴더
 UPLOAD_FOLDER = Path('uploads')
@@ -67,31 +104,71 @@ def get_ocr_system_info():
 def run_batch_ocr(task_id, folder_path, output_folder):
     """배치 OCR 처리를 백그라운드에서 실행합니다."""
     try:
-        # OCR 모델 가져오기
-        ocr = get_ocr_extractor()
+        print(f"[OCR 배치 시작] Task {task_id}, 폴더: {folder_path}, 출력: {output_folder}", flush=True)
         
-        # 이미지 파일 목록 가져오기
-        image_files = ocr.get_image_files(folder_path)
-        total = len(image_files)
+        # OCR 모델 가져오기
+        print(f"[OCR 배치] OCR 모델 로딩 중...", flush=True)
+        ocr = get_ocr_extractor()
+        print(f"[OCR 배치] OCR 모델 로딩 완료", flush=True)
+        
+        # 이미지 파일 목록 가져오기 (하위 폴더 포함)
+        print(f"[OCR 배치] 이미지 파일 목록 가져오는 중 (하위 폴더 포함)...", flush=True)
+        try:
+            image_files = get_image_files_recursive(folder_path)
+            total = len(image_files)
+            print(f"[OCR 배치] 총 {total}개 이미지 파일 발견", flush=True)
+        except Exception as e:
+            error_msg = str(e)
+            print(f"[OCR 배치 오류] 이미지 파일 목록 가져오기 실패: {error_msg}", flush=True)
+            import traceback
+            traceback.print_exc()
+            with ocr_tasks_lock:
+                ocr_tasks[task_id]['status'] = 'error'
+                ocr_tasks[task_id]['error'] = f'이미지 파일 목록 가져오기 실패: {error_msg}'
+            return
         
         with ocr_tasks_lock:
             ocr_tasks[task_id]['total'] = total
             ocr_tasks[task_id]['status'] = 'processing'
         
-        print(f"[OCR 배치] Task {task_id}, 총 {total}개 이미지")
+        print(f"[OCR 배치] Task {task_id}, 총 {total}개 이미지 처리 시작 (멀티스레딩 사용)", flush=True)
         
         results = []
         errors = []
         
+        # 입력 폴더 경로를 절대 경로로 정규화 (상대 경로 계산용)
+        folder_path_abs = os.path.abspath(folder_path)
+        
+        print(f"[OCR 배치] 순차 처리 시작 (총 이미지: {total})", flush=True)
+        
+        # 순차 처리 (1개씩)
         for idx, image_path in enumerate(image_files):
             filename = os.path.basename(image_path)
+            current_num = idx + 1
+            
+            # 10개마다 또는 첫 번째, 마지막에 로그 출력
+            if current_num == 1 or current_num == total or current_num % 10 == 0:
+                print(f"[OCR 배치 진행] {current_num}/{total} ({int(current_num/total*100)}%) - 처리 중: {filename}", flush=True)
+            
             try:
                 # OCR 실행
                 result = ocr.extract_text_with_stats(image_path)
                 
-                # JSON 파일로 저장
-                base_name = os.path.splitext(filename)[0]
-                output_file = os.path.join(output_folder, f"{base_name}.json")
+                # 입력 폴더 기준 상대 경로 계산
+                image_path_abs = os.path.abspath(image_path)
+                relative_path = os.path.relpath(image_path_abs, folder_path_abs)
+                
+                # 상대 경로의 디렉토리 부분과 파일명 분리
+                relative_dir = os.path.dirname(relative_path)
+                base_name = os.path.splitext(os.path.basename(relative_path))[0]
+                
+                # 출력 경로 생성 (하위 폴더 구조 유지)
+                if relative_dir:
+                    output_dir = os.path.join(output_folder, relative_dir)
+                    os.makedirs(output_dir, exist_ok=True)
+                    output_file = os.path.join(output_dir, f"{base_name}.json")
+                else:
+                    output_file = os.path.join(output_folder, f"{base_name}.json")
                 
                 # [{"bbox": [...], "text": "..."}] 형식으로 저장
                 result_data = []
@@ -111,30 +188,34 @@ def run_batch_ocr(task_id, folder_path, output_folder):
                 })
                 
             except Exception as e:
+                error_msg = str(e)
+                print(f"[OCR 배치 오류] {current_num}/{total} - 파일: {filename}, 오류: {error_msg}", flush=True)
                 errors.append({
                     'filename': filename,
-                    'error': str(e)
+                    'error': error_msg
                 })
             
             # 진행 상황 업데이트
             with ocr_tasks_lock:
-                ocr_tasks[task_id]['current'] = idx + 1
-                ocr_tasks[task_id]['percent'] = int((idx + 1) / total * 100) if total > 0 else 100
+                ocr_tasks[task_id]['current'] = current_num
+                ocr_tasks[task_id]['percent'] = int(current_num / total * 100) if total > 0 else 100
         
         # 완료
+        print(f"[OCR 배치 완료] Task {task_id}, 성공: {len(results)}, 실패: {len(errors)}", flush=True)
         with ocr_tasks_lock:
             ocr_tasks[task_id]['status'] = 'completed'
             ocr_tasks[task_id]['results'] = results
             ocr_tasks[task_id]['errors'] = errors
         
-        print(f"[OCR 배치 완료] Task {task_id}, 성공: {len(results)}, 실패: {len(errors)}")
-        
     except Exception as e:
         import traceback
+        error_msg = str(e)
+        print(f"[OCR 배치 중단] Task {task_id}, 오류 발생: {error_msg}", flush=True)
         traceback.print_exc()
         with ocr_tasks_lock:
-            ocr_tasks[task_id]['status'] = 'error'
-            ocr_tasks[task_id]['error'] = str(e)
+            if task_id in ocr_tasks:
+                ocr_tasks[task_id]['status'] = 'error'
+                ocr_tasks[task_id]['error'] = error_msg
 
 
 # ============================================
@@ -233,12 +314,15 @@ def ocr_batch_start():
             }
         
         # 백그라운드 스레드에서 실행
+        print(f"[OCR 배치 시작 요청] Task {task_id}, 폴더: {folder_path}, 출력: {output_folder}", flush=True)
         thread = threading.Thread(
             target=run_batch_ocr,
             args=(task_id, folder_path, output_folder)
         )
         thread.daemon = True
         thread.start()
+        
+        print(f"[OCR 배치] 백그라운드 스레드 시작됨, Task {task_id}", flush=True)
         
         return jsonify({
             'success': True,
@@ -258,6 +342,14 @@ def ocr_batch_progress(task_id):
         task = ocr_tasks.get(task_id)
     
     if not task:
+        print(f"[OCR 배치 진행 조회 실패] Task {task_id}를 찾을 수 없습니다. 현재 작업 수: {len(ocr_tasks)}", flush=True)
         return jsonify({'error': '작업을 찾을 수 없습니다.'}), 404
+    
+    # 진행 상황 로그 (10% 단위로)
+    if 'percent' in task and task.get('percent', 0) % 10 == 0:
+        current = task.get('current', 0)
+        total = task.get('total', 0)
+        status = task.get('status', 'unknown')
+        print(f"[OCR 배치 진행 조회] Task {task_id}, 상태: {status}, 진행: {current}/{total} ({task.get('percent', 0)}%)", flush=True)
     
     return jsonify(task)

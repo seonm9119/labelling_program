@@ -7,11 +7,23 @@
 import os
 import shutil
 import sys
+import re
 from pathlib import Path
 
 # 설정
-IMAGES_PER_FOLDER = 20  # 폴더당 이미지 개수
+IMAGES_PER_FOLDER = 10  # 폴더당 이미지 개수
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
+
+
+def natural_sort_key(text):
+    """
+    자연 정렬을 위한 키 함수 (숫자를 올바르게 정렬)
+    예: 'img_1.png', 'img_2.png', 'img_10.png' 순서로 정렬
+    """
+    def convert(text):
+        return int(text) if text.isdigit() else text.lower()
+    
+    return [convert(c) for c in re.split(r'(\d+)', str(text))]
 
 
 def split_images(source_folder: str):
@@ -21,11 +33,11 @@ def split_images(source_folder: str):
         print(f"오류: '{source_folder}' 폴더가 존재하지 않습니다.")
         return
     
-    # 이미지 파일만 필터링
+    # 이미지 파일만 필터링 및 정렬 (숫자 순서대로)
     image_files = sorted([
         f for f in source_path.iterdir()
         if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
-    ])
+    ], key=natural_sort_key)
     
     total_images = len(image_files)
     if total_images == 0:
