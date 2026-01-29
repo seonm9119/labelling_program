@@ -19,18 +19,12 @@
             <!-- 이미지 폴더 -->
             <div class="path-card">
                 <div class="card-header">
-                    <h3>이미지 폴더</h3>
+                    <h3>이미지 폴더 <span class="required-badge">필수</span></h3>
                     <span class="status-badge" id="imageFolderStatus">미선택</span>
                 </div>
-                <div class="upload-area" id="imageUploadArea">
-                    <input type="file" id="imageFolderInput" webkitdirectory directory multiple hidden>
-                    <div class="upload-placeholder">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 2.58579C2.96086 2.21071 3.46957 2 4 2H9L11 5H20C20.5304 5 21.0391 5.21071 21.4142 5.58579C21.7893 5.96086 22 6.46957 22 7V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        <p>클릭하여 폴더 선택</p>
-                        <span class="file-types">이미지 폴더 (PNG, JPG)</span>
-                    </div>
+                <div class="path-input-group">
+                    <input type="text" class="path-input" id="imageFolderPath" placeholder="예: /data/images">
+                    <button class="btn-check" id="checkImageFolder">확인</button>
                 </div>
                 <div class="folder-info" id="imageFolderInfo"></div>
             </div>
@@ -38,21 +32,65 @@
             <!-- JSON 폴더 -->
             <div class="path-card">
                 <div class="card-header">
-                    <h3>JSON 폴더</h3>
+                    <h3>JSON 폴더 <span class="required-badge">필수</span></h3>
                     <span class="status-badge" id="jsonFolderStatus">미선택</span>
                 </div>
-                <div class="upload-area" id="jsonUploadArea">
-                    <input type="file" id="jsonFolderInput" webkitdirectory directory multiple hidden>
-                    <div class="upload-placeholder">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        <p>클릭하여 폴더 선택</p>
-                        <span class="file-types">JSON 파일 폴더</span>
-                    </div>
+                <div class="path-input-group">
+                    <input type="text" class="path-input" id="jsonFolderPath" placeholder="예: /data/jsons">
+                    <button class="btn-check" id="checkJsonFolder">확인</button>
                 </div>
                 <div class="folder-info" id="jsonFolderInfo"></div>
+            </div>
+            
+            <!-- 저장 경로 -->
+            <div class="path-card">
+                <div class="card-header">
+                    <h3>저장 경로</h3>
+                    <span class="status-badge" id="saveFolderStatus">미선택</span>
+                </div>
+                <p class="path-card-desc">저장 경로만 설정하면 <strong>TRAIN 뷰어</strong>를 단독으로 사용할 수 있습니다.</p>
+                <div class="path-input-group">
+                    <input type="text" class="path-input" id="saveFolderPath" placeholder="예: /data/output">
+                    <button class="btn-check" id="checkSaveFolder">확인</button>
+                </div>
+                <div class="folder-info" id="saveFolderInfo"></div>
+            </div>
+
+            <!-- PaddleOCR 경로 (선택) -->
+            <div class="path-card path-card-optional">
+                <div class="card-header">
+                    <h3>PaddleOCR 경로 <span class="optional-badge">선택</span></h3>
+                    <span class="status-badge" id="paddleFolderStatus">미입력</span>
+                </div>
+                <div class="path-input-group">
+                    <input type="text" class="path-input" id="paddleFolderPath" placeholder="예: /data/paddle">
+                    <button class="btn-check" id="checkPaddleFolder">확인</button>
+                </div>
+                <div class="folder-info" id="paddleFolderInfo"></div>
+            </div>
+
+            <!-- 정답 라벨 경로 (선택) -->
+            <div class="path-card path-card-optional">
+                <div class="card-header">
+                    <h3>정답 라벨 경로 <span class="optional-badge">선택</span></h3>
+                    <span class="status-badge" id="labelFolderStatus">미입력</span>
+                </div>
+                <div class="path-input-group">
+                    <input type="text" class="path-input" id="labelFolderPath" placeholder="예: /data/labels">
+                    <button class="btn-check" id="checkLabelFolder">확인</button>
+                </div>
+                <div class="folder-info" id="labelFolderInfo"></div>
+            </div>
+
+            <!-- TRAIN 뷰어 (Paddle·정답 라벨과 같은 행) -->
+            <div class="train-viewer-wrap">
+                <button class="btn btn-secondary btn-large" id="startTrainViewer" title="저장 경로의 이미지로 뷰어 열기">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                        <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
+                    </svg>
+                    TRAIN 뷰어
+                </button>
             </div>
         </div>
         <div class="start-section">
@@ -75,6 +113,11 @@
                     <span class="current-file" id="currentFileName">-</span>
                     <span class="file-counter" id="fileCounter">0 / 0</span>
                 </div>
+                <div class="viewer-legend" id="viewerLegend">
+                    <label class="legend-item"><input type="checkbox" id="showPaddleLayer" checked> PaddleOCR</label>
+                    <label class="legend-item"><input type="checkbox" id="showLabelLayer" checked> 정답 라벨</label>
+                    <label class="legend-item"><input type="checkbox" id="showAnnotationLayer" checked> JSON(어노테이션) BBOX</label>
+                </div>
             </div>
             <div class="viewer-actions">
                 <button class="btn btn-secondary" id="prevBtn" title="이전 (←)">
@@ -96,6 +139,12 @@
                         <path d="M7 3V7H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                     저장
+                </button>
+                <button class="btn btn-secondary" id="passBtn" title="PASS (현재 파일 제외하고 다음으로)">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    PASS
                 </button>
             </div>
         </div>
@@ -133,6 +182,20 @@
                     <h3>어노테이션 목록</h3>
                     <span class="count-badge" id="annotationCount">0</span>
                 </div>
+                <div class="list-actions">
+                    <button class="btn btn-secondary btn-sm" id="addKeyBtn" title="KEY 추가">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+                            <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        KEY 추가
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="addEtcBtn" title="ETC 추가">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+                            <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        ETC 추가
+                    </button>
+                </div>
                 <div class="list-body" id="annotationListBody">
                     <!-- 어노테이션 항목들이 여기에 동적으로 추가됨 -->
                 </div>
@@ -155,12 +218,21 @@
                 <label>Key ID</label>
                 <input type="text" id="editKeyId" placeholder="숫자 입력" inputmode="numeric">
             </div>
+            <div class="form-group" id="orderGroup" hidden>
+                <label>VALUE 순서 (Order)</label>
+                <input type="number" id="editOrder" placeholder="1, 2, 3..." min="1">
+            </div>
             <div class="form-group">
                 <label>텍스트</label>
                 <textarea id="editText" rows="3" placeholder="텍스트 입력"></textarea>
             </div>
             <div class="form-group" id="linkedValuesGroup" hidden>
-                <label>연결된 VALUE</label>
+                <div class="linked-values-header">
+                    <label>연결된 VALUE</label>
+                    <div class="linked-values-actions">
+                        <button class="btn btn-secondary btn-sm" id="addValueBtn" type="button">VALUE 추가</button>
+                    </div>
+                </div>
                 <div class="linked-values-list" id="linkedValuesList">
                     <!-- 연결된 VALUE 목록이 동적으로 추가됨 -->
                 </div>
@@ -169,6 +241,25 @@
         <div class="popup-footer">
             <button class="btn btn-secondary" id="cancelEdit">취소</button>
             <button class="btn btn-primary" id="saveEdit">저장</button>
+        </div>
+    </div>
+
+    <!-- 폴더 브라우저 모달 -->
+    <div class="folder-browser-modal" id="folderBrowserModal" hidden>
+        <div class="folder-browser-content">
+            <div class="folder-browser-header">
+                <h3>폴더 선택</h3>
+                <button class="btn-close" id="folderBrowserClose">×</button>
+            </div>
+            <div class="folder-browser-path">
+                <button class="btn-nav" id="folderBrowserUp">상위</button>
+                <div class="path-display" id="folderBrowserPath">/</div>
+            </div>
+            <div class="folder-browser-list" id="folderBrowserList"></div>
+            <div class="folder-browser-actions">
+                <button class="btn btn-secondary" id="folderBrowserCancel">취소</button>
+                <button class="btn btn-primary" id="folderBrowserSelect">선택</button>
+            </div>
         </div>
     </div>
 </div>

@@ -13,6 +13,22 @@
     <div class="keyvalue-header">
         <h2>🔗 Key-Value 맵핑</h2>
         <p class="keyvalue-desc">이미지에서 드래그로 영역을 선택하여 Key-Value 쌍을 라벨링합니다</p>
+        <div class="keyvalue-header-actions">
+            <input type="file" id="kvBatchJsonInput" accept=".json" hidden>
+            <button type="button" class="btn btn-batch-link" id="kvBatchBtn" data-batch-url="{{ url_for('keyvalue.keyvalue_batch') }}" title="어노테이션 JSON 파일을 선택하면 대용량 처리 페이지로 이동합니다">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V9L13 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="13,2 13,9 20,9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="7" y="12" width="10" height="2" rx="1" fill="currentColor"/>
+                    <rect x="7" y="16" width="10" height="2" rx="1" fill="currentColor"/>
+                </svg>
+                📦 대용량 처리
+            </button>
+            <div class="kv-batch-explanation">
+                <span class="kv-batch-explanation-label">처리 흐름:</span>
+                어노테이션 JSON 선택 → 대용량 페이지에서 이미지 폴더·정답 라벨·PaddleOCR 폴더 지정 → 템플릿 기준으로 Key-Value 자동 매칭 → 결과 JSON/ZIP 다운로드
+            </div>
+        </div>
     </div>
 
     <div class="keyvalue-content">

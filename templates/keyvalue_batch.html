@@ -71,7 +71,7 @@
                 <div class="file-info" id="annotationInfo"></div>
             </div>
 
-            <!-- 물류 OCR 폴더 -->
+            <!-- 정답 라벨 폴더 -->
             <div class="upload-card" id="logisticsCard">
                 <div class="card-header">
                     <h3>
@@ -80,7 +80,7 @@
                             <path d="M9 20H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <path d="M12 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
-                        물류 OCR
+                        정답 라벨
                     </h3>
                     <span class="upload-status" id="logisticsStatus">미선택</span>
                 </div>
@@ -91,7 +91,7 @@
                             <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 2.58579C2.96086 2.21071 3.46957 2 4 2H9L11 5H20C20.5304 5 21.0391 5.21071 21.4142 5.58579C21.7893 5.96086 22 6.46957 22 7V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                         <p>클릭하여 폴더 선택</p>
-                        <span class="file-types">물류 OCR JSON 폴더</span>
+                        <span class="file-types">정답 라벨 JSON 폴더</span>
                     </div>
                 </div>
                 <div class="file-info" id="logisticsInfo"></div>
@@ -223,14 +223,14 @@
             <ol>
                 <li><strong>이미지 폴더</strong>: 클릭하여 처리할 이미지들이 있는 폴더 선택</li>
                 <li><strong>어노테이션 JSON</strong>: 수동 맵핑 결과 JSON 파일 업로드 (템플릿으로 사용)</li>
-                <li><strong>물류 OCR 폴더</strong>: 클릭하여 물류 OCR JSON 파일들이 있는 폴더 선택</li>
+                <li><strong>정답 라벨 폴더</strong>: 클릭하여 정답 라벨 JSON 파일들이 있는 폴더 선택</li>
                 <li><strong>PaddleOCR 폴더</strong>: 클릭하여 PaddleOCR JSON 파일들이 있는 폴더 선택</li>
                 <li><strong>일괄 처리 시작</strong>: 버튼을 클릭하여 자동 처리 시작</li>
                 <li><strong>결과 다운로드</strong>: 처리 완료 후 ZIP 파일로 다운로드</li>
             </ol>
             <div class="help-note">
-                💡 <strong>파일명 매칭:</strong> 이미지 파일명과 동일한 이름의 PaddleOCR, 물류OCR JSON 파일을 자동으로 찾아 처리합니다.<br>
-                예: <code>image1.jpg</code> → <code>image1.json</code> (PaddleOCR), <code>image1.json</code> (물류OCR) → <code>image1.json</code> (출력)
+                💡 <strong>파일명 매칭:</strong> 이미지 파일명과 동일한 이름의 PaddleOCR, 정답 라벨 JSON 파일을 자동으로 찾아 처리합니다.<br>
+                예: <code>image1.jpg</code> → <code>image1.json</code> (PaddleOCR), <code>image1.json</code> (정답 라벨) → <code>image1.json</code> (출력)
             </div>
         </div>
     </div>
