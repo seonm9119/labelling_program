@@ -34,14 +34,8 @@ COPY routes/ routes/
 COPY templates/ templates/
 COPY static/ static/
 
-# uploads 디렉토리 생성
-RUN mkdir -p uploads
-
 # 포트 노출
 EXPOSE 5000
 
-# Gunicorn 설정 파일 복사
-COPY gunicorn.conf.py .
-
-# 서버 실행 (Gunicorn 사용)
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
+# 서버 실행 (Flask 개발 서버)
+CMD ["python", "app.py"]

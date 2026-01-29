@@ -8,13 +8,10 @@ services:
     volumes:
       # 코드 변경 시 바로 반영
       - ./app.py:/app/app.py:ro
-      - ./gunicorn.conf.py:/app/gunicorn.conf.py:ro
       - ./templates:/app/templates:ro
       - ./static:/app/static:ro
       - ./models:/app/models:ro
       - ./routes:/app/routes:ro
-      # 업로드 폴더
-      - ./uploads:/app/uploads
       # CLIP 모델 캐시
       - ~/.cache/clip:/root/.cache/clip
       # 호스트 파일시스템 마운트
