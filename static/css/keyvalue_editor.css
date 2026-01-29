@@ -6,6 +6,11 @@
     animation: fadeIn var(--transition-normal);
 }
 
+/* 수정 뷰어 메인 화면은 더 넓게 사용 */
+.main-content {
+    max-width: 1600px;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -31,9 +36,16 @@
 /* 폴더 경로 입력 그리드 */
 .path-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 1.5rem;
     margin-bottom: 1.5rem;
+    align-items: start; /* 정답 라벨·Paddle 카드·TRAIN 뷰어 버튼 같은 top 정렬 */
+}
+
+@media (max-width: 1024px) {
+    .path-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 @media (max-width: 768px) {
@@ -62,6 +74,16 @@
     margin-bottom: 1rem;
 }
 
+.path-card-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0 0 0.75rem 0;
+    line-height: 1.4;
+}
+.path-card-desc strong {
+    color: var(--text-primary);
+}
+
 .path-card .card-header h3 {
     display: flex;
     align-items: center;
@@ -75,6 +97,29 @@
     width: 18px;
     height: 18px;
     color: var(--accent-primary);
+}
+
+.path-card-optional .path-input-group {
+    opacity: 0.95;
+}
+
+.optional-badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: var(--bg-secondary);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.25rem;
+}
+
+.required-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #ef4444;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.25rem;
 }
 
 .status-badge {
@@ -200,9 +245,32 @@
     color: var(--error);
 }
 
+/* 저장 경로 카드 아래 TRAIN 뷰어 버튼 (카드 밖, 같은 열에 배치) */
+.train-viewer-wrap {
+    grid-column: 3;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+.train-viewer-wrap .btn {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
+}
+@media (max-width: 1024px) {
+    .train-viewer-wrap { grid-column: 2; }
+}
+@media (max-width: 768px) {
+    .train-viewer-wrap { grid-column: 1; }
+}
+
 /* 시작 버튼 섹션 */
 .start-section {
-    text-align: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
     margin: 2rem 0;
 }
 
@@ -255,8 +323,28 @@
 
 .viewer-header .header-left {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem 1.5rem;
+}
+
+.viewer-legend {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.viewer-legend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+}
+
+.viewer-legend .legend-item input[type="checkbox"] {
+    cursor: pointer;
 }
 
 .viewer-header h2 {
@@ -333,10 +421,10 @@
 
 .viewer-content {
     display: grid;
-    grid-template-columns: 1fr 480px;
+    grid-template-columns: 1fr 420px;
     gap: 1.5rem;
-    height: calc(100vh - 300px);
-    min-height: 600px;
+    height: calc(100vh - 220px);
+    min-height: 720px;
 }
 
 @media (max-width: 1024px) {
@@ -451,6 +539,24 @@
     color: white;
 }
 
+.list-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.list-actions .btn-sm {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+}
+
 .list-body {
     flex: 1;
     overflow-y: auto;
@@ -534,7 +640,7 @@
     position: fixed;
     top: 60px;
     right: 20px;
-    width: 800px;
+    width: 420px;
     max-height: calc(100vh - 80px);
     overflow-y: auto;
     background: var(--bg-card);
@@ -596,6 +702,29 @@
     font-weight: 500;
     color: var(--text-secondary);
     margin-bottom: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.linked-values-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.linked-values-header label {
+    margin: 0;
+}
+
+.linked-values-actions {
+    display: flex;
+    gap: 0.5rem;
 }
 
 .type-display {
