@@ -74,9 +74,37 @@
     // ============================================
     // 초기화
     // ============================================
+    const KV_BATCH_STORAGE_KEY = 'kvBatchTemplateJson';
+
     function init() {
         setupEventListeners();
+        loadTemplateFromSessionStorage();
         updateButtonState();
+    }
+
+    /** Key-Value 맵핑 페이지에서 전달된 어노테이션 JSON이 있으면 적용 */
+    function loadTemplateFromSessionStorage() {
+        try {
+            const raw = sessionStorage.getItem(KV_BATCH_STORAGE_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            sessionStorage.removeItem(KV_BATCH_STORAGE_KEY);
+            if (!parsed || typeof parsed !== 'object') return;
+            const hasAnnotations = parsed.annotations && Array.isArray(parsed.annotations);
+            const isArray = Array.isArray(parsed);
+            if (!hasAnnotations && !isArray) return;
+            state.annotationTemplate = hasAnnotations ? parsed : { annotations: parsed };
+            const count = state.annotationTemplate.annotations ? state.annotationTemplate.annotations.length : 0;
+            if (elements.annotationInfo) {
+                elements.annotationInfo.textContent = '✅ Key-Value 맵핑에서 전달됨 (' + count + '개 어노테이션)';
+            }
+            if (elements.annotationStatus) {
+                elements.annotationStatus.textContent = '업로드됨';
+                elements.annotationStatus.className = 'upload-status status-success';
+            }
+        } catch (err) {
+            console.warn('kvBatchTemplateJson load failed', err);
+        }
     }
 
     function setupEventListeners() {
@@ -383,7 +411,7 @@
             const paddleFile = paddleMap.get(baseName);
             
             if (!logisticsFile) {
-                throw new Error(`물류 OCR 파일 없음: ${baseName}.json`);
+                throw new Error(`정답 라벨 파일 없음: ${baseName}.json`);
             }
             if (!paddleFile) {
                 throw new Error(`PaddleOCR 파일 없음: ${baseName}.json`);

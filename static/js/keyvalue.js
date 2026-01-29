@@ -85,6 +85,15 @@ function setupKvEventListeners() {
         kvJsonInput.addEventListener('change', handleKvJsonLoad);
     }
     
+    // 대용량 처리 버튼: 클릭 시 JSON 파일 선택 → 검증 후 대용량 처리 페이지로 이동
+    const kvBatchBtn = document.getElementById('kvBatchBtn');
+    const kvBatchJsonInput = document.getElementById('kvBatchJsonInput');
+    
+    if (kvBatchBtn && kvBatchJsonInput) {
+        kvBatchBtn.addEventListener('click', () => kvBatchJsonInput.click());
+        kvBatchJsonInput.addEventListener('change', handleKvBatchJsonSelect);
+    }
+    
     // 줌 버튼 이벤트
     const kvZoomIn = document.getElementById('kvZoomIn');
     const kvZoomOut = document.getElementById('kvZoomOut');
@@ -1179,6 +1188,70 @@ function deleteLastLabel() {
     updateKvModeIndicator();
     renderKvLabels();
     drawAnnotationsOnCanvas();
+}
+
+// ============================================
+// 대용량 처리: JSON 파일 선택 후 검증하고 배치 페이지로 이동
+// ============================================
+const KV_BATCH_STORAGE_KEY = 'kvBatchTemplateJson';
+
+function handleKvBatchJsonSelect(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    const batchUrl = document.getElementById('kvBatchBtn') && document.getElementById('kvBatchBtn').getAttribute('data-batch-url');
+
+    if (!file) {
+        input.value = '';
+        return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.json')) {
+        alert('JSON 파일만 선택할 수 있습니다.\n(.json 확장자 파일을 선택해 주세요.)');
+        input.value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        let obj;
+        try {
+            obj = JSON.parse(event.target.result);
+        } catch (err) {
+            alert('JSON 형식이 올바르지 않습니다.\n\n' + err.message);
+            input.value = '';
+            return;
+        }
+
+        if (!obj || typeof obj !== 'object') {
+            alert('올바른 어노테이션 JSON이 아닙니다.\n(객체 또는 배열 형태여야 합니다.)');
+            input.value = '';
+            return;
+        }
+
+        // 배치 페이지 형식: { annotations: [...] } 또는 배열
+        let template = obj;
+        if (Array.isArray(obj)) {
+            template = { annotations: obj };
+        } else if (!obj.annotations || !Array.isArray(obj.annotations)) {
+            alert('어노테이션 JSON에는 "annotations" 배열이 필요합니다.');
+            input.value = '';
+            return;
+        }
+
+        try {
+            sessionStorage.setItem(KV_BATCH_STORAGE_KEY, JSON.stringify(template));
+        } catch (err) {
+            alert('파일이 너무 커서 저장할 수 없습니다.\n대용량 처리 페이지에서 직접 JSON을 업로드해 주세요.');
+            input.value = '';
+            return;
+        }
+
+        input.value = '';
+        if (batchUrl) {
+            window.location.href = batchUrl;
+        }
+    };
+    reader.readAsText(file);
 }
 
 // ============================================
