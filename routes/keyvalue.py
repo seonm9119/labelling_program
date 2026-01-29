@@ -4,6 +4,7 @@ Key-Value 맵핑 라우트
 
 import os
 import json
+import shutil
 from flask import Blueprint, render_template, request, jsonify, send_file
 
 # Blueprint 생성
@@ -21,15 +22,6 @@ def keyvalue_mapper():
     return render_template('keyvalue_mapper.html', 
                          system_info=get_system_info(), 
                          active_page='keyvalue')
-
-
-@keyvalue_bp.route('/keyvalue/auto')
-def keyvalue_auto():
-    """Key-Value 자동 맵핑 페이지"""
-    from routes.clip import get_system_info
-    return render_template('keyvalue_auto.html', 
-                         system_info=get_system_info(), 
-                         active_page='keyvalue_auto')
 
 
 @keyvalue_bp.route('/keyvalue/batch')
@@ -64,22 +56,60 @@ def editor_check_folder():
     data = request.get_json()
     folder_path = data.get('folderPath')
     file_type = data.get('fileType')
+    create_if_not_exists = data.get('createIfNotExists', False)
+    save_folder = data.get('saveFolder')
     
     if not folder_path:
         return jsonify({'error': '폴더 경로가 필요합니다.'}), 400
     
     expanded_path = os.path.expanduser(folder_path)
+    
     if not os.path.exists(expanded_path):
-        return jsonify({'error': f'폴더를 찾을 수 없습니다: {expanded_path}'}), 404
+        if create_if_not_exists:
+            try:
+                os.makedirs(expanded_path, exist_ok=True)
+            except Exception as e:
+                return jsonify({'error': f'폴더 생성 실패: {str(e)}'}), 500
+        else:
+            return jsonify({'error': f'폴더를 찾을 수 없습니다: {expanded_path}'}), 404
+    
     if not os.path.isdir(expanded_path):
         return jsonify({'error': f'경로가 폴더가 아닙니다: {expanded_path}'}), 400
     
     files = []
     if file_type == 'image':
         image_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp')
-        files = [f for f in os.listdir(expanded_path) if f.lower().endswith(image_extensions)]
+        all_files = [f for f in os.listdir(expanded_path) if f.lower().endswith(image_extensions)]
+        if save_folder:
+            save_folder = os.path.expanduser(save_folder)
+            for f in all_files:
+                original_path = os.path.join(expanded_path, f)
+                save_path = os.path.join(save_folder, f)
+                if os.path.exists(original_path) or os.path.exists(save_path):
+                    files.append(f)
+        else:
+            files = all_files
     elif file_type == 'json':
-        files = [f for f in os.listdir(expanded_path) if f.lower().endswith('.json')]
+        all_json_files = [f for f in os.listdir(expanded_path) if f.lower().endswith('.json')]
+        image_folder = data.get('imageFolder')
+        if image_folder and save_folder:
+            image_folder = os.path.expanduser(image_folder)
+            save_folder = os.path.expanduser(save_folder)
+            image_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp')
+            for json_file in all_json_files:
+                base_name = os.path.splitext(json_file)[0]
+                image_found = False
+                for ext in image_extensions:
+                    image_filename = base_name + ext
+                    original_image_path = os.path.join(image_folder, image_filename)
+                    save_image_path = os.path.join(save_folder, image_filename)
+                    if os.path.exists(original_image_path) or os.path.exists(save_image_path):
+                        image_found = True
+                        break
+                if image_found:
+                    files.append(json_file)
+        else:
+            files = all_json_files
     else:
         return jsonify({'error': '지원하지 않는 파일 타입입니다.'}), 400
     
@@ -93,14 +123,21 @@ def editor_check_folder():
 
 @keyvalue_bp.route('/editor/load-image')
 def editor_load_image():
-    """에디터: 이미지 로드"""
+    """에디터: 이미지 로드 (원본 폴더에 없으면 저장 경로에서 찾기)"""
     folder = request.args.get('folder')
     file = request.args.get('file')
+    save_folder = request.args.get('saveFolder')
     
     if not folder or not file:
         return 'Missing parameters', 400
     
+    folder = os.path.expanduser(folder)
     file_path = os.path.join(folder, file)
+    
+    if not os.path.exists(file_path) and save_folder:
+        save_folder = os.path.expanduser(save_folder)
+        file_path = os.path.join(save_folder, file)
+    
     if not os.path.exists(file_path):
         return 'File not found', 404
     
@@ -109,15 +146,25 @@ def editor_load_image():
 
 @keyvalue_bp.route('/editor/load-json', methods=['POST'])
 def editor_load_json():
-    """에디터: JSON 로드"""
+    """에디터: JSON 로드 (저장 경로 우선 확인)"""
     data = request.get_json()
     folder_path = data.get('folderPath')
     filename = data.get('filename')
+    save_folder = data.get('saveFolder')
     
     if not folder_path or not filename:
         return jsonify({'error': '필수 파라미터가 누락되었습니다.'}), 400
     
-    file_path = os.path.join(folder_path, filename)
+    file_path = None
+    if save_folder:
+        save_folder = os.path.expanduser(save_folder)
+        save_file_path = os.path.join(save_folder, filename)
+        if os.path.exists(save_file_path):
+            file_path = save_file_path
+    
+    if not file_path:
+        folder_path = os.path.expanduser(folder_path)
+        file_path = os.path.join(folder_path, filename)
     
     if not os.path.exists(file_path):
         return jsonify({'success': False, 'error': 'JSON 파일이 없습니다.'})
@@ -132,21 +179,49 @@ def editor_load_json():
 
 @keyvalue_bp.route('/editor/save-json', methods=['POST'])
 def editor_save_json():
-    """에디터: JSON 저장"""
+    """에디터: JSON 저장 및 이미지 이동"""
     data = request.get_json()
     folder_path = data.get('folderPath')
     filename = data.get('filename')
     json_data = data.get('data')
+    image_path = data.get('imagePath')
+    image_filename = data.get('imageFilename')
     
-    if not folder_path or not filename or not json_data:
+    if not folder_path or not filename or json_data is None:
         return jsonify({'error': '필수 파라미터가 누락되었습니다.'}), 400
     
+    folder_path = os.path.expanduser(folder_path)
     file_path = os.path.join(folder_path, filename)
     
     try:
+        os.makedirs(folder_path, exist_ok=True)
+        
+        # LLM 학습용: 토큰 절약을 위한 최적화
+        if isinstance(json_data, dict) and 'annotations' in json_data:
+            for ann in json_data['annotations']:
+                if isinstance(ann, dict):
+                    if 'id' in ann:
+                        del ann['id']
+                    if 'text' in ann and ann['text'] is None:
+                        del ann['text']
+                    if 'bbox' in ann and isinstance(ann['bbox'], list):
+                        ann['bbox'] = [int(round(x)) for x in ann['bbox']]
+        
         with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, indent=2, ensure_ascii=False)
-        return jsonify({'success': True})
+            json.dump(json_data, f, separators=(',', ':'), ensure_ascii=False)
+        
+        image_moved = False
+        if image_path and image_filename:
+            image_path = os.path.expanduser(image_path)
+            if os.path.exists(image_path) and os.path.isfile(image_path):
+                dst_image_path = os.path.join(folder_path, image_filename)
+                try:
+                    shutil.move(image_path, dst_image_path)
+                    image_moved = True
+                except Exception as e:
+                    return jsonify({'success': False, 'error': f'이미지 이동 실패: {str(e)}'}), 500
+        
+        return jsonify({'success': True, 'imageMoved': image_moved})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -274,6 +349,13 @@ def batch_auto_mapping():
         # 자동 맵핑 수행
         mapped_result = perform_auto_mapping(template, paddle_ocr, logistics_ocr)
         
+        # 결과 검증
+        if mapped_result is None:
+            return jsonify({'error': '자동 맵핑 결과가 None입니다.'}), 500
+        
+        if not isinstance(mapped_result, dict):
+            return jsonify({'error': f'자동 맵핑 결과가 올바른 형식이 아닙니다: {type(mapped_result)}'}), 500
+        
         # 이미지 이름 설정
         mapped_result['image'] = image_name
         
@@ -323,7 +405,7 @@ def batch_process_image():
         
         # 파일 존재 확인
         if not os.path.exists(logistics_file):
-            return jsonify({'error': f'물류 OCR 파일을 찾을 수 없습니다: {json_name}'}), 404
+            return jsonify({'error': f'정답 라벨 파일을 찾을 수 없습니다: {json_name}'}), 404
         
         if not os.path.exists(paddle_file):
             return jsonify({'error': f'PaddleOCR 파일을 찾을 수 없습니다: {json_name}'}), 404

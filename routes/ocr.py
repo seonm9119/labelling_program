@@ -328,9 +328,8 @@ def run_batch_ocr(task_id, folder_path, output_folder, start_from=0):
                     ocr_tasks[task_id]['results'] = results
                     ocr_tasks[task_id]['errors'] = errors
                     ocr_tasks[task_id]['last_update_time'] = time.time()  # 마지막 업데이트 시간 갱신
-                    # 파일 저장은 10개마다만 (성능 고려)
-                    if current_num % 10 == 0 or current_num == total:
-                        save_task_state(task_id, ocr_tasks[task_id])
+                    # 매 파일마다 저장 (다중 워커/프로세스에서 progress API가 최신 상태를 읽을 수 있도록)
+                    save_task_state(task_id, ocr_tasks[task_id])
             except Exception as save_error:
                 print(f"[OCR 경고] 진행 상황 업데이트 실패: {str(save_error)}", flush=True)
         
@@ -482,6 +481,14 @@ def ocr_batch_progress(task_id):
     
     if not task:
         return jsonify({'error': '작업을 찾을 수 없습니다.'}), 404
+    
+    # 처리 중일 때는 항상 파일에서 최신 상태 로드 (다중 워커에서 진행률이 갱신되도록)
+    if task.get('status') == 'processing':
+        disk_task = load_task_state(task_id)
+        if disk_task and disk_task.get('current', 0) >= 0:
+            task = disk_task
+            with ocr_tasks_lock:
+                ocr_tasks[task_id] = task
     
     # 타임아웃 체크 (5분 동안 업데이트가 없으면 타임아웃으로 간주)
     if task.get('status') == 'processing':
