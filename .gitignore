@@ -9,11 +9,6 @@ venv/
 .venv/
 ENV/
 
-# Uploads (user data)
-uploads/
-uploads_dev/
-uploads_prod/
-
 # IDE
 .idea/
 .vscode/
@@ -30,3 +25,9 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Uploads (user data)
+uploads/
+.gitignore
+split_images.py
+.dockerignore
