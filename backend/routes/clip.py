@@ -6,19 +6,19 @@ import os
 import shutil
 import threading
 import uuid
-from flask import Blueprint, render_template, request, jsonify
-from werkzeug.utils import secure_filename
-from pathlib import Path
+from fastapi import APIRouter, Request
 
 from backend.models import CLIPClassifier
-from backend.utils.file_utils import ensure_folder, expand_user_path
+from backend.config import UPLOAD_DIR
+from backend.responses import json_response
+from backend.templates import templates
+from backend.utils.file_utils import ensure_folder, expand_user_path, safe_filename
 
-# Blueprint 생성
-clip_bp = Blueprint('clip', __name__)
+# Router 생성
+clip_router = APIRouter()
 
 # 임시 업로드 폴더
-UPLOAD_FOLDER = Path('uploads')
-UPLOAD_FOLDER.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 # CLIP 분류기 초기화
 clip_classifier = CLIPClassifier(model_name="ViT-B/32")
@@ -131,53 +131,58 @@ def run_multi_analysis(task_id, reference_images, image_files, classify_mode):
 # 페이지 라우트
 # ============================================
 
-@clip_bp.route('/')
-@clip_bp.route('/clip')
-def clip_page():
+@clip_router.get('/')
+@clip_router.get('/clip')
+def clip_page(request: Request):
     """CLIP 이미지 분석 및 분류 페이지"""
-    return render_template('clip_classifier.html', 
-                         system_info=SYSTEM_INFO, 
-                         active_page='clip')
+    return templates.TemplateResponse('clip_classifier.html', {
+        'request': request,
+        'system_info': SYSTEM_INFO,
+        'active_page': 'clip'
+    })
 
 
 # ============================================
 # 단일 기준 이미지 API
 # ============================================
 
-@clip_bp.route('/analyze/start', methods=['POST'])
-def analyze_start():
+@clip_router.post('/analyze/start')
+async def analyze_start(request: Request):
     """단일 기준 이미지 분석을 시작하고 task_id를 반환합니다."""
     try:
+        form = await request.form()
+
         # 기준 이미지 업로드 확인
-        if 'imageA' not in request.files:
-            return jsonify({'error': '기준 이미지가 필요합니다.'}), 400
+        if 'imageA' not in form:
+            return json_response({'error': '기준 이미지가 필요합니다.'}, status_code=400)
         
-        image_a = request.files['imageA']
+        image_a = form['imageA']
         if image_a.filename == '':
-            return jsonify({'error': '기준 이미지가 선택되지 않았습니다.'}), 400
+            return json_response({'error': '기준 이미지가 선택되지 않았습니다.'}, status_code=400)
         
         # 폴더 경로 확인
-        folder_path = expand_user_path(request.form.get('folderPath'))
+        folder_path = expand_user_path(form.get('folderPath'))
         
         if not folder_path:
-            return jsonify({'error': '비교할 폴더 경로가 필요합니다.'}), 400
+            return json_response({'error': '비교할 폴더 경로가 필요합니다.'}, status_code=400)
         
         if not os.path.exists(folder_path):
-            return jsonify({'error': f'폴더를 찾을 수 없습니다: {folder_path}'}), 400
+            return json_response({'error': f'폴더를 찾을 수 없습니다: {folder_path}'}, status_code=400)
         
         # 기준 이미지 임시 저장
         task_id = str(uuid.uuid4())
-        temp_dir = UPLOAD_FOLDER / task_id
+        temp_dir = UPLOAD_DIR / task_id
         temp_dir.mkdir(parents=True)
         
-        image_a_path = temp_dir / secure_filename(image_a.filename)
-        image_a.save(str(image_a_path))
+        image_a_path = temp_dir / safe_filename(image_a.filename)
+        with open(image_a_path, 'wb') as image_file:
+            image_file.write(await image_a.read())
         
         # 폴더 내 이미지 파일 목록
         image_files = CLIPClassifier.get_image_files(folder_path)
         
         if not image_files:
-            return jsonify({'error': '폴더에 이미지 파일이 없습니다.'}), 400
+            return json_response({'error': '폴더에 이미지 파일이 없습니다.'}, status_code=400)
         
         # 작업 초기화
         with tasks_lock:
@@ -200,7 +205,7 @@ def analyze_start():
         
         print(f"[분석 시작] Task {task_id}, 총 {len(image_files)}개 이미지")
         
-        return jsonify({
+        return json_response({
             'success': True,
             'taskId': task_id,
             'total': len(image_files)
@@ -209,17 +214,17 @@ def analyze_start():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)
 
 
-@clip_bp.route('/analyze/progress/<task_id>')
+@clip_router.get('/analyze/progress/{task_id}')
 def analyze_progress(task_id):
     """분석 진행 상황을 반환합니다."""
     with tasks_lock:
         task = tasks.get(task_id)
     
     if not task:
-        return jsonify({'error': '작업을 찾을 수 없습니다.'}), 404
+        return json_response({'error': '작업을 찾을 수 없습니다.'}, status_code=404)
     
     response = {
         'status': task['status'],
@@ -247,34 +252,36 @@ def analyze_progress(task_id):
     elif task['status'] == 'error':
         response['error'] = task.get('error', '알 수 없는 오류')
     
-    return jsonify(response)
+    return json_response(response)
 
 
 # ============================================
 # 다중 기준 이미지 API
 # ============================================
 
-@clip_bp.route('/multi-analyze/start', methods=['POST'])
-def multi_analyze_start():
+@clip_router.post('/multi-analyze/start')
+async def multi_analyze_start(request: Request):
     """다중 기준 이미지 분석을 시작합니다."""
     try:
+        form = await request.form()
+
         # 폴더 경로 확인
-        folder_path = expand_user_path(request.form.get('folderPath'))
+        folder_path = expand_user_path(form.get('folderPath'))
         
         if not folder_path:
             print(f"[에러] 비교할 폴더 경로가 필요합니다.")
-            return jsonify({'error': '비교할 폴더 경로가 필요합니다.'}), 400
+            return json_response({'error': '비교할 폴더 경로가 필요합니다.'}, status_code=400)
         
         if not os.path.exists(folder_path):
             print(f"[에러] 폴더를 찾을 수 없습니다: {folder_path}")
-            return jsonify({'error': f'폴더를 찾을 수 없습니다: {folder_path}'}), 400
+            return json_response({'error': f'폴더를 찾을 수 없습니다: {folder_path}'}, status_code=400)
         
         # 분류 모드
-        classify_mode = request.form.get('classifyMode', 'best_match')
+        classify_mode = form.get('classifyMode', 'best_match')
         
         # 기준 이미지들 처리
         task_id = str(uuid.uuid4())
-        temp_dir = UPLOAD_FOLDER / task_id
+        temp_dir = UPLOAD_DIR / task_id
         temp_dir.mkdir(parents=True)
         
         reference_images = []
@@ -283,20 +290,21 @@ def multi_analyze_start():
             image_key = f'refImage_{idx}'
             folder_key = f'refFolder_{idx}'
             
-            if image_key not in request.files:
+            if image_key not in form:
                 break
             
-            image_file = request.files[image_key]
-            target_folder = expand_user_path(request.form.get(folder_key))
+            image_file = form[image_key]
+            target_folder = expand_user_path(form.get(folder_key))
             
             if image_file.filename == '':
                 idx += 1
                 continue
             
             # 이미지 저장
-            filename = secure_filename(image_file.filename)
+            filename = safe_filename(image_file.filename)
             image_path = temp_dir / f"{idx}_{filename}"
-            image_file.save(str(image_path))
+            with open(image_path, 'wb') as saved_image:
+                saved_image.write(await image_file.read())
             
             reference_images.append({
                 'path': str(image_path),
@@ -308,14 +316,14 @@ def multi_analyze_start():
         
         if not reference_images:
             print(f"[에러] 최소 1개의 기준 이미지가 필요합니다.")
-            return jsonify({'error': '최소 1개의 기준 이미지가 필요합니다.'}), 400
+            return json_response({'error': '최소 1개의 기준 이미지가 필요합니다.'}, status_code=400)
         
         # 폴더 내 이미지 파일 목록
         image_files = CLIPClassifier.get_image_files(folder_path)
         
         if not image_files:
             print(f"[에러] 폴더에 이미지 파일이 없습니다: {folder_path}")
-            return jsonify({'error': '폴더에 이미지 파일이 없습니다.'}), 400
+            return json_response({'error': '폴더에 이미지 파일이 없습니다.'}, status_code=400)
         
         # 작업 초기화
         total_work = len(reference_images) + len(image_files)
@@ -339,7 +347,7 @@ def multi_analyze_start():
         
         print(f"[다중 분석 시작] Task {task_id}, 기준 {len(reference_images)}개, 비교 {len(image_files)}개")
         
-        return jsonify({
+        return json_response({
             'success': True,
             'taskId': task_id,
             'refCount': len(reference_images),
@@ -349,17 +357,17 @@ def multi_analyze_start():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)
 
 
-@clip_bp.route('/multi-analyze/progress/<task_id>')
+@clip_router.get('/multi-analyze/progress/{task_id}')
 def multi_analyze_progress(task_id):
     """다중 분석 진행 상황을 반환합니다."""
     with tasks_lock:
         task = tasks.get(task_id)
     
     if not task:
-        return jsonify({'error': '작업을 찾을 수 없습니다.'}), 404
+        return json_response({'error': '작업을 찾을 수 없습니다.'}, status_code=404)
     
     response = {
         'status': task['status'],
@@ -385,25 +393,25 @@ def multi_analyze_progress(task_id):
     elif task['status'] == 'error':
         response['error'] = task.get('error', '알 수 없는 오류')
     
-    return jsonify(response)
+    return json_response(response)
 
 
 # ============================================
 # 분류 API
 # ============================================
 
-@clip_bp.route('/classify', methods=['POST'])
-def classify():
+@clip_router.post('/classify')
+async def classify(request: Request):
     """임계치 이상의 유사도를 가진 이미지들을 이동합니다 (단일 기준 이미지용)."""
     try:
-        data = request.json
+        data = await request.json()
         threshold = float(data.get('threshold', 70))
         result_id = data.get('resultId', '')
         target_folder = data.get('targetFolder', '').strip()
         move_mode = data.get('moveMode', 'copy')
         
         if not target_folder:
-            return jsonify({'error': '대상 폴더가 지정되지 않았습니다.'}), 400
+            return json_response({'error': '대상 폴더가 지정되지 않았습니다.'}, status_code=400)
         
         # 대상 폴더 생성
         target_folder = expand_user_path(target_folder)
@@ -416,7 +424,7 @@ def classify():
             similarities = task['similarities'] if task else []
         
         if not similarities:
-            return jsonify({'error': '분석 결과가 없습니다. 먼저 분석을 실행해주세요.'}), 400
+            return json_response({'error': '분석 결과가 없습니다. 먼저 분석을 실행해주세요.'}, status_code=400)
         
         moved_files = []
         errors = []
@@ -477,7 +485,7 @@ def classify():
         action = "이동" if move_mode == 'move' else "복사"
         print(f"[분류 완료] {len(moved_files)}개 {action}, {len(errors)}개 오류")
         
-        return jsonify({
+        return json_response({
             'success': True,
             'moved': moved_files,
             'errors': errors,
@@ -487,14 +495,14 @@ def classify():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)
 
 
-@clip_bp.route('/multi-classify', methods=['POST'])
-def multi_classify():
+@clip_router.post('/multi-classify')
+async def multi_classify(request: Request):
     """다중 기준 이미지 분류를 실행합니다. 각 기준 이미지별로 개별 임계치 적용."""
     try:
-        data = request.json
+        data = await request.json()
         result_id = data.get('resultId', '')
         move_mode = data.get('moveMode', 'copy')
         classify_mode = data.get('classifyMode', 'best_match')
@@ -507,13 +515,13 @@ def multi_classify():
             task = tasks.get(result_id)
         
         if not task or task.get('status') != 'complete':
-            return jsonify({'error': '분석 결과가 없습니다. 먼저 분석을 실행해주세요.'}), 400
+            return json_response({'error': '분석 결과가 없습니다. 먼저 분석을 실행해주세요.'}, status_code=400)
         
         all_results = task.get('allResults', [])
         reference_images = task.get('referenceImages', [])
         
         if not all_results:
-            return jsonify({'error': '분석 결과가 없습니다.'}), 400
+            return json_response({'error': '분석 결과가 없습니다.'}, status_code=400)
         
         # 기준 이미지 이름 -> 인덱스 매핑
         ref_name_to_idx = {ref['name']: idx for idx, ref in enumerate(reference_images)}
@@ -665,7 +673,7 @@ def multi_classify():
         action = "이동" if move_mode == 'move' else "복사"
         print(f"[다중 분류 완료] {len(moved_files)}개 {action}, {len(errors)}개 오류")
         
-        return jsonify({
+        return json_response({
             'success': True,
             'moved': moved_files,
             'errors': errors,
@@ -676,4 +684,4 @@ def multi_classify():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)

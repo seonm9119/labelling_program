@@ -35,5 +35,5 @@ COPY frontend/ frontend/
 # 포트 노출
 EXPOSE 5000
 
-# 서버 실행 (Flask 개발 서버)
+# 서버 실행 (FastAPI 서버)
 CMD ["python", "app.py"]

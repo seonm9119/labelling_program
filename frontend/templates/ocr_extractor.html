@@ -7,7 +7,7 @@
 {% block header_subtitle %}AI 기반 이미지 텍스트 인식 및 추출{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/clip.css') }}">
+<link rel="stylesheet" href="/static/css/clip.css">
 <style>
 /* OCR 전용 스타일 */
 .ocr-result-card {
@@ -429,5 +429,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/ocr.js') }}"></script>
+<script src="/static/js/ocr.js"></script>
 {% endblock %}

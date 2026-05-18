@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     {% block head_scripts %}{% endblock %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="/static/css/base.css">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -24,7 +24,7 @@
                 <!-- CLIP 이미지 분류기 섹션 -->
                 <div class="nav-section">
                     <div class="nav-section-title">CLIP 이미지 분류기</div>
-                    <a href="{{ url_for('clip.clip_page') }}" class="nav-item {% if active_page == 'clip' %}active{% endif %}">
+                    <a href="/clip" class="nav-item {% if active_page == 'clip' %}active{% endif %}">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
                             <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
@@ -37,7 +37,7 @@
                 <!-- 자동 OCR 처리기 섹션 -->
                 <div class="nav-section">
                     <div class="nav-section-title">OCR 텍스트 추출</div>
-                    <a href="{{ url_for('ocr.ocr_page') }}" class="nav-item {% if active_page == 'ocr' %}active{% endif %}">
+                    <a href="/ocr" class="nav-item {% if active_page == 'ocr' %}active{% endif %}">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -51,7 +51,7 @@
                 <!-- Key-Value 맵핑 섹션 -->
                 <div class="nav-section">
                     <div class="nav-section-title">Key-Value 맵핑</div>
-                    <a href="{{ url_for('keyvalue.keyvalue_mapper') }}" class="nav-item {% if active_page == 'keyvalue' %}active{% endif %}">
+                    <a href="/keyvalue" class="nav-item {% if active_page == 'keyvalue' %}active{% endif %}">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M15 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <path d="M10 17L15 12L10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -59,7 +59,7 @@
                         </svg>
                         Key-Value 맵핑
                     </a>
-                    <a href="{{ url_for('keyvalue.keyvalue_editor') }}" class="nav-item {% if active_page == 'keyvalue_editor' %}active{% endif %}">
+                    <a href="/keyvalue/editor" class="nav-item {% if active_page == 'keyvalue_editor' %}active{% endif %}">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <path d="M18.5 2.5C18.8978 2.10217 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10217 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10217 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -146,7 +146,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    <script src="/static/js/common.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

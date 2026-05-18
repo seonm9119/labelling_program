@@ -4,7 +4,10 @@ Key-Value 맵핑 라우트
 
 import os
 import shutil
-from flask import Blueprint, render_template, request, jsonify, send_file
+from fastapi import APIRouter, Request
+from fastapi.responses import FileResponse, PlainTextResponse
+from backend.responses import json_response
+from backend.templates import templates
 from backend.utils.file_utils import (
     ANNOTATION_IMAGE_EXTENSIONS,
     ensure_folder,
@@ -15,60 +18,66 @@ from backend.utils.file_utils import (
     save_json_file,
 )
 
-# Blueprint 생성
-keyvalue_bp = Blueprint('keyvalue', __name__)
+# Router 생성
+keyvalue_router = APIRouter()
 
 
 # ============================================
 # 페이지 라우트
 # ============================================
 
-@keyvalue_bp.route('/keyvalue')
-def keyvalue_mapper():
+@keyvalue_router.get('/keyvalue')
+def keyvalue_mapper(request: Request):
     """Key-Value 맵핑 페이지"""
     from backend.routes.clip import get_system_info
-    return render_template('keyvalue_mapper.html', 
-                         system_info=get_system_info(), 
-                         active_page='keyvalue')
+    return templates.TemplateResponse('keyvalue_mapper.html', {
+        'request': request,
+        'system_info': get_system_info(),
+        'active_page': 'keyvalue'
+    })
 
 
-@keyvalue_bp.route('/keyvalue/batch')
-def keyvalue_batch():
+@keyvalue_router.get('/keyvalue/batch')
+def keyvalue_batch(request: Request):
     """Key-Value 대용량 자동처리 페이지"""
     from backend.routes.clip import get_system_info
     default_data_path = os.environ.get('DEFAULT_DATA_PATH', '/data')
-    return render_template('keyvalue_batch.html', 
-                         system_info=get_system_info(), 
-                         active_page='keyvalue_batch',
-                         default_data_path=default_data_path)
+    return templates.TemplateResponse('keyvalue_batch.html', {
+        'request': request,
+        'system_info': get_system_info(),
+        'active_page': 'keyvalue_batch',
+        'default_data_path': default_data_path
+    })
 
 
-@keyvalue_bp.route('/keyvalue/editor')
-def keyvalue_editor():
+@keyvalue_router.get('/keyvalue/editor')
+def keyvalue_editor(request: Request):
     """Key-Value 수정 뷰어 페이지"""
     from backend.routes.clip import get_system_info
     default_data_path = os.environ.get('DEFAULT_DATA_PATH', '/data')
-    return render_template('keyvalue_editor.html', 
-                         system_info=get_system_info(), 
-                         active_page='keyvalue_editor',
-                         default_data_path=default_data_path)
+    return templates.TemplateResponse('keyvalue_editor.html', {
+        'request': request,
+        'system_info': get_system_info(),
+        'active_page': 'keyvalue_editor',
+        'default_data_path': default_data_path
+    })
 
 
 # ============================================
 # 에디터 API
 # ============================================
 
-@keyvalue_bp.route('/editor/check-folder', methods=['POST'])
-def editor_check_folder():
+@keyvalue_router.post('/editor/check-folder')
+async def editor_check_folder(request: Request):
     """에디터: 폴더 확인"""
-    data = request.get_json()
+    data = await request.json()
     folder_path = data.get('folderPath')
     file_type = data.get('fileType')
     create_if_not_exists = data.get('createIfNotExists', False)
     save_folder = data.get('saveFolder')
     
     if not folder_path:
-        return jsonify({'error': '폴더 경로가 필요합니다.'}), 400
+        return json_response({'error': '폴더 경로가 필요합니다.'}, status_code=400)
     
     expanded_path = expand_user_path(folder_path)
     
@@ -77,12 +86,12 @@ def editor_check_folder():
             try:
                 ensure_folder(expanded_path)
             except Exception as e:
-                return jsonify({'error': f'폴더 생성 실패: {str(e)}'}), 500
+                return json_response({'error': f'폴더 생성 실패: {str(e)}'}, status_code=500)
         else:
-            return jsonify({'error': f'폴더를 찾을 수 없습니다: {expanded_path}'}), 404
+            return json_response({'error': f'폴더를 찾을 수 없습니다: {expanded_path}'}, status_code=404)
     
     if not os.path.isdir(expanded_path):
-        return jsonify({'error': f'경로가 폴더가 아닙니다: {expanded_path}'}), 400
+        return json_response({'error': f'경로가 폴더가 아닙니다: {expanded_path}'}, status_code=400)
     
     files = []
     if file_type == 'image':
@@ -117,9 +126,9 @@ def editor_check_folder():
         else:
             files = all_json_files
     else:
-        return jsonify({'error': '지원하지 않는 파일 타입입니다.'}), 400
+        return json_response({'error': '지원하지 않는 파일 타입입니다.'}, status_code=400)
     
-    return jsonify({
+    return json_response({
         'success': True,
         'path': expanded_path,
         'files': sorted(files),
@@ -127,15 +136,13 @@ def editor_check_folder():
     })
 
 
-@keyvalue_bp.route('/editor/load-image')
-def editor_load_image():
+@keyvalue_router.get('/editor/load-image')
+def editor_load_image(folder=None, file=None, saveFolder=None):
     """에디터: 이미지 로드 (원본 폴더에 없으면 저장 경로에서 찾기)"""
-    folder = request.args.get('folder')
-    file = request.args.get('file')
-    save_folder = request.args.get('saveFolder')
+    save_folder = saveFolder
     
     if not folder or not file:
-        return 'Missing parameters', 400
+        return PlainTextResponse('Missing parameters', status_code=400)
     
     folder = expand_user_path(folder)
     file_path = os.path.join(folder, file)
@@ -145,21 +152,21 @@ def editor_load_image():
         file_path = os.path.join(save_folder, file)
     
     if not os.path.exists(file_path):
-        return 'File not found', 404
+        return PlainTextResponse('File not found', status_code=404)
     
-    return send_file(file_path)
+    return FileResponse(file_path)
 
 
-@keyvalue_bp.route('/editor/load-json', methods=['POST'])
-def editor_load_json():
+@keyvalue_router.post('/editor/load-json')
+async def editor_load_json(request: Request):
     """에디터: JSON 로드 (저장 경로 우선 확인)"""
-    data = request.get_json()
+    data = await request.json()
     folder_path = data.get('folderPath')
     filename = data.get('filename')
     save_folder = data.get('saveFolder')
     
     if not folder_path or not filename:
-        return jsonify({'error': '필수 파라미터가 누락되었습니다.'}), 400
+        return json_response({'error': '필수 파라미터가 누락되었습니다.'}, status_code=400)
     
     file_path = None
     if save_folder:
@@ -173,19 +180,19 @@ def editor_load_json():
         file_path = os.path.join(folder_path, filename)
     
     if not os.path.exists(file_path):
-        return jsonify({'success': False, 'error': 'JSON 파일이 없습니다.'})
+        return json_response({'success': False, 'error': 'JSON 파일이 없습니다.'})
     
     try:
         json_data = load_json_file(file_path)
-        return jsonify({'success': True, 'data': json_data})
+        return json_response({'success': True, 'data': json_data})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return json_response({'success': False, 'error': str(e)})
 
 
-@keyvalue_bp.route('/editor/save-json', methods=['POST'])
-def editor_save_json():
+@keyvalue_router.post('/editor/save-json')
+async def editor_save_json(request: Request):
     """에디터: JSON 저장 및 이미지 이동"""
-    data = request.get_json()
+    data = await request.json()
     folder_path = data.get('folderPath')
     filename = data.get('filename')
     json_data = data.get('data')
@@ -193,7 +200,7 @@ def editor_save_json():
     image_filename = data.get('imageFilename')
     
     if not folder_path or not filename or json_data is None:
-        return jsonify({'error': '필수 파라미터가 누락되었습니다.'}), 400
+        return json_response({'error': '필수 파라미터가 누락되었습니다.'}, status_code=400)
     
     folder_path = expand_user_path(folder_path)
     file_path = os.path.join(folder_path, filename)
@@ -223,22 +230,22 @@ def editor_save_json():
                     shutil.move(image_path, dst_image_path)
                     image_moved = True
                 except Exception as e:
-                    return jsonify({'success': False, 'error': f'이미지 이동 실패: {str(e)}'}), 500
+                    return json_response({'success': False, 'error': f'이미지 이동 실패: {str(e)}'}, status_code=500)
         
-        return jsonify({'success': True, 'imageMoved': image_moved})
+        return json_response({'success': True, 'imageMoved': image_moved})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return json_response({'success': False, 'error': str(e)})
 
 
 # ============================================
 # 배치 처리 API
 # ============================================
 
-@keyvalue_bp.route('/batch/browse-folder', methods=['POST'])
-def batch_browse_folder():
+@keyvalue_router.post('/batch/browse-folder')
+async def batch_browse_folder(request: Request):
     """서버 폴더 브라우저 - 지정된 경로의 폴더/파일 목록 반환"""
     try:
-        data = request.json
+        data = await request.json()
         current_path = data.get('path', '/').strip()
         
         # 경로 확장
@@ -276,12 +283,12 @@ def batch_browse_folder():
                 except PermissionError:
                     continue
         except PermissionError:
-            return jsonify({'error': '권한이 없습니다.'}), 403
+            return json_response({'error': '권한이 없습니다.'}, status_code=403)
         
         # 폴더만 필터링 (폴더 선택용)
         folders = [item for item in items if item['isDir']]
         
-        return jsonify({
+        return json_response({
             'success': True,
             'currentPath': current_path,
             'parentPath': os.path.dirname(current_path) if current_path != '/' else None,
@@ -289,28 +296,28 @@ def batch_browse_folder():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)
 
 
-@keyvalue_bp.route('/batch/check-folder', methods=['POST'])
-def batch_check_folder():
+@keyvalue_router.post('/batch/check-folder')
+async def batch_check_folder(request: Request):
     """폴더 존재 여부와 파일 목록 확인"""
     try:
-        data = request.json
+        data = await request.json()
         folder_path = data.get('folderPath', '').strip()
         file_type = data.get('fileType', 'image')  # 'image', 'json'
         
         if not folder_path:
-            return jsonify({'error': '폴더 경로를 입력하세요.'}), 400
+            return json_response({'error': '폴더 경로를 입력하세요.'}, status_code=400)
         
         # 경로 확장
         folder_path = expand_user_path(folder_path)
         
         if not os.path.exists(folder_path):
-            return jsonify({'error': '폴더가 존재하지 않습니다.'}), 404
+            return json_response({'error': '폴더가 존재하지 않습니다.'}, status_code=404)
         
         if not os.path.isdir(folder_path):
-            return jsonify({'error': '폴더 경로가 아닙니다.'}), 400
+            return json_response({'error': '폴더 경로가 아닙니다.'}, status_code=400)
         
         # 파일 목록 가져오기
         files = []
@@ -319,7 +326,7 @@ def batch_check_folder():
         elif file_type == 'json':
             files = list_json_filenames(folder_path)
         
-        return jsonify({
+        return json_response({
             'success': True,
             'path': folder_path,
             'files': sorted(files),
@@ -327,53 +334,53 @@ def batch_check_folder():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)
 
 
-@keyvalue_bp.route('/batch/auto-mapping', methods=['POST'])
-def batch_auto_mapping():
+@keyvalue_router.post('/batch/auto-mapping')
+async def batch_auto_mapping(request: Request):
     """JSON 데이터를 받아서 자동 맵핑 수행 (클라이언트 업로드 방식)"""
     try:
         from backend.models.auto_mapping import perform_auto_mapping
         
-        data = request.json
+        data = await request.json()
         image_name = data.get('image_name')
         template = data.get('template')
         paddle_ocr = data.get('paddle_ocr')
         logistics_ocr = data.get('logistics_ocr')
         
         if not all([image_name, template, paddle_ocr, logistics_ocr]):
-            return jsonify({'error': '필수 파라미터가 누락되었습니다.'}), 400
+            return json_response({'error': '필수 파라미터가 누락되었습니다.'}, status_code=400)
         
         # 자동 맵핑 수행
         mapped_result = perform_auto_mapping(template, paddle_ocr, logistics_ocr)
         
         # 결과 검증
         if mapped_result is None:
-            return jsonify({'error': '자동 맵핑 결과가 None입니다.'}), 500
+            return json_response({'error': '자동 맵핑 결과가 None입니다.'}, status_code=500)
         
         if not isinstance(mapped_result, dict):
-            return jsonify({'error': f'자동 맵핑 결과가 올바른 형식이 아닙니다: {type(mapped_result)}'}), 500
+            return json_response({'error': f'자동 맵핑 결과가 올바른 형식이 아닙니다: {type(mapped_result)}'}, status_code=500)
         
         # 이미지 이름 설정
         mapped_result['image'] = image_name
         
-        return jsonify(mapped_result)
+        return json_response(mapped_result)
         
     except Exception as e:
         import traceback
         print(f"[자동맵핑 API 에러] {str(e)}")
         print(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)
 
 
-@keyvalue_bp.route('/batch/process-image', methods=['POST'])
-def batch_process_image():
+@keyvalue_router.post('/batch/process-image')
+async def batch_process_image(request: Request):
     """단일 이미지에 대한 자동 맵핑 처리 및 저장"""
     try:
         from backend.models.auto_mapping import perform_auto_mapping
         
-        data = request.json
+        data = await request.json()
         image_file = data.get('imageFile')
         image_folder = data.get('imageFolder')
         logistics_folder = data.get('logisticsFolder')
@@ -382,7 +389,7 @@ def batch_process_image():
         annotation_template = data.get('annotationTemplate')
         
         if not all([image_file, image_folder, logistics_folder, paddle_folder, output_folder, annotation_template]):
-            return jsonify({'error': '필수 파라미터가 누락되었습니다.'}), 400
+            return json_response({'error': '필수 파라미터가 누락되었습니다.'}, status_code=400)
         
         # 경로 확장
         image_folder = expand_user_path(image_folder)
@@ -404,10 +411,10 @@ def batch_process_image():
         
         # 파일 존재 확인
         if not os.path.exists(logistics_file):
-            return jsonify({'error': f'정답 라벨 파일을 찾을 수 없습니다: {json_name}'}), 404
+            return json_response({'error': f'정답 라벨 파일을 찾을 수 없습니다: {json_name}'}, status_code=404)
         
         if not os.path.exists(paddle_file):
-            return jsonify({'error': f'PaddleOCR 파일을 찾을 수 없습니다: {json_name}'}), 404
+            return json_response({'error': f'PaddleOCR 파일을 찾을 수 없습니다: {json_name}'}, status_code=404)
         
         # OCR 파일 읽기
         logistics_ocr = load_json_file(logistics_file)
@@ -428,7 +435,7 @@ def batch_process_image():
         key_count = sum(1 for a in annotations if a.get('type') == 'key')
         value_count = sum(1 for a in annotations if a.get('type') == 'value')
         
-        return jsonify({
+        return json_response({
             'success': True,
             'outputFile': output_file,
             'keyCount': key_count,
@@ -439,4 +446,4 @@ def batch_process_image():
         import traceback
         print(f"[배치 처리 에러] {str(e)}")
         print(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)

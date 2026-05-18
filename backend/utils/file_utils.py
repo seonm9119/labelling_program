@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 
 
@@ -14,6 +15,12 @@ def expand_user_path(raw_path):
 
 def ensure_folder(folder_path):
     os.makedirs(folder_path, exist_ok=True)
+
+
+def safe_filename(filename):
+    filename = Path(filename or '').name
+    cleaned_filename = re.sub(r'[^A-Za-z0-9_.-]+', '_', filename).strip('._')
+    return cleaned_filename or 'upload'
 
 
 def is_image_file(filename, image_extensions=None):

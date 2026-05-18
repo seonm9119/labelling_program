@@ -4,7 +4,7 @@
 {% block header_subtitle %}JSON 어노테이션 수정 및 시각화{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/keyvalue_editor.css') }}">
+<link rel="stylesheet" href="/static/css/keyvalue_editor.css">
 {% endblock %}
 
 {% block content %}
@@ -269,5 +269,5 @@
 <script>
     window.DEFAULT_DATA_PATH = "{{ default_data_path }}";
 </script>
-<script src="{{ url_for('static', filename='js/keyvalue_editor.js') }}"></script>
+<script src="/static/js/keyvalue_editor.js"></script>
 {% endblock %}

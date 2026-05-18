@@ -9,18 +9,19 @@ import threading
 import uuid
 import traceback
 import time
-from flask import Blueprint, render_template, request, jsonify
-from werkzeug.utils import secure_filename
+from fastapi import APIRouter, Request
 from pathlib import Path
 from backend.models import OCRExtractor
-from backend.utils.file_utils import IMAGE_EXTENSIONS, ensure_folder, expand_user_path
+from backend.config import TASKS_STATE_DIR, UPLOAD_DIR
+from backend.responses import json_response
+from backend.templates import templates
+from backend.utils.file_utils import IMAGE_EXTENSIONS, ensure_folder, expand_user_path, safe_filename
 
-# Blueprint 생성
-ocr_bp = Blueprint('ocr', __name__)
+# Router 생성
+ocr_router = APIRouter()
 
 # 임시 업로드 폴더
-UPLOAD_FOLDER = Path('uploads')
-UPLOAD_FOLDER.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 # OCR 모델 인스턴스 (lazy loading)
 _ocr_extractor = None
@@ -31,8 +32,7 @@ ocr_tasks = {}
 ocr_tasks_lock = threading.Lock()
 
 # 작업 상태 저장 폴더
-TASKS_STATE_FOLDER = Path('tasks_state')
-TASKS_STATE_FOLDER.mkdir(exist_ok=True)
+TASKS_STATE_DIR.mkdir(exist_ok=True)
 
 
 def get_image_files_recursive(folder_path):
@@ -68,7 +68,7 @@ def get_image_files_recursive(folder_path):
 def save_task_state(task_id, task_data):
     """작업 상태를 파일로 저장합니다."""
     try:
-        state_file = TASKS_STATE_FOLDER / f"{task_id}.json"
+        state_file = TASKS_STATE_DIR / f"{task_id}.json"
         with open(state_file, 'w', encoding='utf-8') as f:
             json.dump(task_data, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -78,7 +78,7 @@ def save_task_state(task_id, task_data):
 def load_task_state(task_id):
     """파일에서 작업 상태를 로드합니다."""
     try:
-        state_file = TASKS_STATE_FOLDER / f"{task_id}.json"
+        state_file = TASKS_STATE_DIR / f"{task_id}.json"
         if state_file.exists():
             with open(state_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -356,36 +356,41 @@ def run_batch_ocr(task_id, folder_path, output_folder, start_from=0):
 # 페이지 라우트
 # ============================================
 
-@ocr_bp.route('/ocr')
-def ocr_page():
+@ocr_router.get('/ocr')
+def ocr_page(request: Request):
     """OCR 텍스트 추출 페이지"""
-    return render_template('ocr_extractor.html', 
-                         system_info=get_ocr_system_info(), 
-                         active_page='ocr')
+    return templates.TemplateResponse('ocr_extractor.html', {
+        'request': request,
+        'system_info': get_ocr_system_info(),
+        'active_page': 'ocr'
+    })
 
 
 # ============================================
 # OCR API
 # ============================================
 
-@ocr_bp.route('/ocr/extract', methods=['POST'])
-def ocr_extract():
+@ocr_router.post('/ocr/extract')
+async def ocr_extract(request: Request):
     """단일 이미지 OCR 텍스트 추출"""
     try:
-        if 'image' not in request.files:
-            return jsonify({'error': '이미지가 필요합니다.'}), 400
+        form = await request.form()
+
+        if 'image' not in form:
+            return json_response({'error': '이미지가 필요합니다.'}, status_code=400)
         
-        image = request.files['image']
+        image = form['image']
         if image.filename == '':
-            return jsonify({'error': '이미지가 선택되지 않았습니다.'}), 400
+            return json_response({'error': '이미지가 선택되지 않았습니다.'}, status_code=400)
         
         # 임시 파일 저장
         task_id = str(uuid.uuid4())
-        temp_dir = UPLOAD_FOLDER / f"ocr_{task_id}"
+        temp_dir = UPLOAD_DIR / f"ocr_{task_id}"
         temp_dir.mkdir(parents=True)
         
-        image_path = temp_dir / secure_filename(image.filename)
-        image.save(str(image_path))
+        image_path = temp_dir / safe_filename(image.filename)
+        with open(image_path, 'wb') as image_file:
+            image_file.write(await image.read())
         
         print(f"[OCR 추출] 이미지: {image.filename}")
         
@@ -396,7 +401,7 @@ def ocr_extract():
         # 임시 파일 정리
         shutil.rmtree(temp_dir, ignore_errors=True)
         
-        return jsonify({
+        return json_response({
             'success': True,
             'text': result['text'],
             'boxes': result['boxes'],
@@ -404,18 +409,18 @@ def ocr_extract():
         })
         
     except ImportError as e:
-        return jsonify({'error': f'OCR 라이브러리가 설치되지 않았습니다: {str(e)}'}), 500
+        return json_response({'error': f'OCR 라이브러리가 설치되지 않았습니다: {str(e)}'}, status_code=500)
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)
 
 
-@ocr_bp.route('/ocr/batch/start', methods=['POST'])
-def ocr_batch_start():
+@ocr_router.post('/ocr/batch/start')
+async def ocr_batch_start(request: Request):
     """대용량 OCR 처리를 시작합니다."""
     try:
-        data = request.json
+        data = await request.json()
         folder_path = data.get('folderPath', '').strip()
         output_folder = data.get('outputFolder', '').strip()
         
@@ -424,13 +429,13 @@ def ocr_batch_start():
         output_folder = expand_user_path(output_folder)
         
         if not folder_path:
-            return jsonify({'error': '이미지 폴더 경로가 필요합니다.'}), 400
+            return json_response({'error': '이미지 폴더 경로가 필요합니다.'}, status_code=400)
         
         if not output_folder:
-            return jsonify({'error': '출력 폴더 경로가 필요합니다.'}), 400
+            return json_response({'error': '출력 폴더 경로가 필요합니다.'}, status_code=400)
         
         if not os.path.exists(folder_path):
-            return jsonify({'error': f'폴더를 찾을 수 없습니다: {folder_path}'}), 400
+            return json_response({'error': f'폴더를 찾을 수 없습니다: {folder_path}'}, status_code=400)
         
         # 출력 폴더 생성
         ensure_folder(output_folder)
@@ -458,17 +463,17 @@ def ocr_batch_start():
         thread.daemon = False
         thread.start()
         
-        return jsonify({
+        return json_response({
             'success': True,
             'taskId': task_id
         })
         
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)
 
 
-@ocr_bp.route('/ocr/batch/progress/<task_id>')
+@ocr_router.get('/ocr/batch/progress/{task_id}')
 def ocr_batch_progress(task_id):
     """OCR 배치 처리 진행 상황을 반환합니다."""
     with ocr_tasks_lock:
@@ -480,7 +485,7 @@ def ocr_batch_progress(task_id):
             ocr_tasks[task_id] = task
     
     if not task:
-        return jsonify({'error': '작업을 찾을 수 없습니다.'}), 404
+        return json_response({'error': '작업을 찾을 수 없습니다.'}, status_code=404)
     
     # 처리 중일 때는 항상 파일에서 최신 상태 로드 (다중 워커에서 진행률이 갱신되도록)
     if task.get('status') == 'processing':
@@ -502,26 +507,26 @@ def ocr_batch_progress(task_id):
             task['error'] = f'처리가 멈춘 것으로 보입니다. 마지막 업데이트: {int((current_time - last_update) / 60)}분 전'
             save_task_state(task_id, task)
     
-    return jsonify(task)
+    return json_response(task)
 
 
-@ocr_bp.route('/ocr/batch/resume/<task_id>', methods=['POST'])
+@ocr_router.post('/ocr/batch/resume/{task_id}')
 def ocr_batch_resume(task_id):
     """중단된 OCR 배치 작업을 재개합니다."""
     try:
         task = load_task_state(task_id)
         if not task:
-            return jsonify({'error': '작업을 찾을 수 없습니다.'}), 404
+            return json_response({'error': '작업을 찾을 수 없습니다.'}, status_code=404)
         
         if task.get('status') == 'completed':
-            return jsonify({'error': '이미 완료된 작업입니다.'}), 400
+            return json_response({'error': '이미 완료된 작업입니다.'}, status_code=400)
         
         folder_path = task.get('folder_path')
         output_folder = task.get('output_folder')
         current = task.get('current', 0)
         
         if not folder_path or not output_folder:
-            return jsonify({'error': '작업 정보가 불완전합니다.'}), 400
+            return json_response({'error': '작업 정보가 불완전합니다.'}, status_code=400)
         
         with ocr_tasks_lock:
             ocr_tasks[task_id] = task
@@ -535,7 +540,7 @@ def ocr_batch_resume(task_id):
         thread.daemon = False
         thread.start()
         
-        return jsonify({
+        return json_response({
             'success': True,
             'taskId': task_id,
             'message': f'작업이 {current}번째 파일부터 재개됩니다.'
@@ -543,4 +548,4 @@ def ocr_batch_resume(task_id):
         
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return json_response({'error': str(e)}, status_code=500)

@@ -17,8 +17,7 @@ services:
       - /mnt:/mnt
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - APP_DEBUG=1
       - DEFAULT_DATA_PATH=/
     dns:
       - 8.8.8.8

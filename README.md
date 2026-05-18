@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Flask-Engine--Driven-000000?style=for-the-badge&logo=flask&logoColor=white"/>
+  <img src="https://img.shields.io/badge/FastAPI-API--Ready-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
   <img src="https://img.shields.io/badge/Docker-Production--Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white"/>
   <img src="https://img.shields.io/badge/CUDA-GPU%20Supported-76B900?style=for-the-badge&logo=nvidia&logoColor=white"/>
 </p>
@@ -48,7 +48,7 @@
   PaddleOCR v5
 
 - **Backend**  
-  Python 3.10+, Flask (Engine-Oriented API)
+  Python 3.10+, FastAPI (API-ready backend)
 
 - **Frontend**  
   HTML5 · CSS3 · JavaScript  
