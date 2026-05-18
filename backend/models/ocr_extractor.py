@@ -6,7 +6,7 @@ PaddleOCR 3.x를 사용한 이미지 텍스트 인식 및 추출
 import os
 import torch
 import threading
-from utils.file_utils import list_image_paths
+from backend.utils.file_utils import list_image_paths
 
 
 class OCRExtractor:

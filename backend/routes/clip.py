@@ -10,8 +10,8 @@ from flask import Blueprint, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 from pathlib import Path
 
-from models import CLIPClassifier
-from utils.file_utils import ensure_folder, expand_user_path
+from backend.models import CLIPClassifier
+from backend.utils.file_utils import ensure_folder, expand_user_path
 
 # Blueprint 생성
 clip_bp = Blueprint('clip', __name__)

@@ -29,10 +29,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 애플리케이션 코드 복사
 COPY app.py .
-COPY models/ models/
-COPY routes/ routes/
-COPY templates/ templates/
-COPY static/ static/
+COPY backend/ backend/
+COPY frontend/ frontend/
 
 # 포트 노출
 EXPOSE 5000

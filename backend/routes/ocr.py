@@ -12,8 +12,8 @@ import time
 from flask import Blueprint, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 from pathlib import Path
-from models import OCRExtractor
-from utils.file_utils import IMAGE_EXTENSIONS, ensure_folder, expand_user_path
+from backend.models import OCRExtractor
+from backend.utils.file_utils import IMAGE_EXTENSIONS, ensure_folder, expand_user_path
 
 # Blueprint 생성
 ocr_bp = Blueprint('ocr', __name__)

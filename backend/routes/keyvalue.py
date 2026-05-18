@@ -5,7 +5,7 @@ Key-Value 맵핑 라우트
 import os
 import shutil
 from flask import Blueprint, render_template, request, jsonify, send_file
-from utils.file_utils import (
+from backend.utils.file_utils import (
     ANNOTATION_IMAGE_EXTENSIONS,
     ensure_folder,
     expand_user_path,
@@ -26,7 +26,7 @@ keyvalue_bp = Blueprint('keyvalue', __name__)
 @keyvalue_bp.route('/keyvalue')
 def keyvalue_mapper():
     """Key-Value 맵핑 페이지"""
-    from routes.clip import get_system_info
+    from backend.routes.clip import get_system_info
     return render_template('keyvalue_mapper.html', 
                          system_info=get_system_info(), 
                          active_page='keyvalue')
@@ -35,7 +35,7 @@ def keyvalue_mapper():
 @keyvalue_bp.route('/keyvalue/batch')
 def keyvalue_batch():
     """Key-Value 대용량 자동처리 페이지"""
-    from routes.clip import get_system_info
+    from backend.routes.clip import get_system_info
     default_data_path = os.environ.get('DEFAULT_DATA_PATH', '/data')
     return render_template('keyvalue_batch.html', 
                          system_info=get_system_info(), 
@@ -46,7 +46,7 @@ def keyvalue_batch():
 @keyvalue_bp.route('/keyvalue/editor')
 def keyvalue_editor():
     """Key-Value 수정 뷰어 페이지"""
-    from routes.clip import get_system_info
+    from backend.routes.clip import get_system_info
     default_data_path = os.environ.get('DEFAULT_DATA_PATH', '/data')
     return render_template('keyvalue_editor.html', 
                          system_info=get_system_info(), 
@@ -334,7 +334,7 @@ def batch_check_folder():
 def batch_auto_mapping():
     """JSON 데이터를 받아서 자동 맵핑 수행 (클라이언트 업로드 방식)"""
     try:
-        from models.auto_mapping import perform_auto_mapping
+        from backend.models.auto_mapping import perform_auto_mapping
         
         data = request.json
         image_name = data.get('image_name')
@@ -371,7 +371,7 @@ def batch_auto_mapping():
 def batch_process_image():
     """단일 이미지에 대한 자동 맵핑 처리 및 저장"""
     try:
-        from models.auto_mapping import perform_auto_mapping
+        from backend.models.auto_mapping import perform_auto_mapping
         
         data = request.json
         image_file = data.get('imageFile')

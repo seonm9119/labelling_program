@@ -8,7 +8,7 @@ import shutil
 import sys
 import re
 from pathlib import Path
-from utils.file_utils import IMAGE_EXTENSIONS
+from backend.utils.file_utils import IMAGE_EXTENSIONS
 
 # 설정
 IMAGES_PER_FOLDER = 10  # 폴더당 이미지 개수
