@@ -3,10 +3,9 @@
 """
 import copy
 import math
-from typing import List, Dict, Any, Tuple, Optional
 
 
-def perform_auto_mapping(template: Dict, paddle_ocr: Any, logistics_ocr: Any) -> Dict:
+def perform_auto_mapping(template, paddle_ocr, logistics_ocr):
     """
     자동 맵핑 수행 - keyvalue_auto.js와 동일한 로직
     
@@ -474,7 +473,7 @@ def perform_auto_mapping(template: Dict, paddle_ocr: Any, logistics_ocr: Any) ->
     return result
 
 
-def generate_auto_values(logistics_words: List[Dict]) -> List[Dict]:
+def generate_auto_values(logistics_words):
     """물류 OCR을 가로로 합쳐서 자동맵핑 VALUE 생성"""
     if not logistics_words:
         return []
@@ -534,7 +533,7 @@ def generate_auto_values(logistics_words: List[Dict]) -> List[Dict]:
     return values
 
 
-def text_contains_single(manual_line: str, paddle_text: str) -> bool:
+def text_contains_single(manual_line, paddle_text):
     """텍스트 완전일치 (띄어쓰기 제외)"""
     if not manual_line or not paddle_text:
         return False
@@ -546,7 +545,7 @@ def text_contains_single(manual_line: str, paddle_text: str) -> bool:
     return paddle_no_space == manual_no_space
 
 
-def levenshtein_distance(s1: str, s2: str) -> int:
+def levenshtein_distance(s1, s2):
     """편집 거리 계산"""
     m, n = len(s1), len(s2)
     dp = [[0] * (n + 1) for _ in range(m + 1)]
@@ -566,7 +565,7 @@ def levenshtein_distance(s1: str, s2: str) -> int:
     return dp[m][n]
 
 
-def is_inside_moved_key_value(paddle_bbox: List, manual_keys: List[Dict], manual_values: List[Dict], moved_bbox_map: Dict) -> bool:
+def is_inside_moved_key_value(paddle_bbox, manual_keys, manual_values, moved_bbox_map):
     """PaddleOCR이 이동된 KEY/VALUE 영역에 있는지 확인"""
     pw_center_x = (paddle_bbox[0] + paddle_bbox[2]) / 2
     pw_center_y = (paddle_bbox[1] + paddle_bbox[3]) / 2
@@ -586,13 +585,13 @@ def is_inside_moved_key_value(paddle_bbox: List, manual_keys: List[Dict], manual
     return False
 
 
-def is_bbox_overlap(bbox1: List, bbox2: List) -> bool:
+def is_bbox_overlap(bbox1, bbox2):
     """두 bbox가 겹치는지 확인"""
     return not (bbox1[2] < bbox2[0] or bbox1[0] > bbox2[2] or 
                 bbox1[3] < bbox2[1] or bbox1[1] > bbox2[3])
 
 
-def calculate_iou(bbox1: List, bbox2: List) -> float:
+def calculate_iou(bbox1, bbox2):
     """IoU 계산"""
     ix1 = max(bbox1[0], bbox2[0])
     iy1 = max(bbox1[1], bbox2[1])
@@ -610,7 +609,7 @@ def calculate_iou(bbox1: List, bbox2: List) -> float:
     return intersection / union if union > 0 else 0.0
 
 
-def calculate_overlap_ratio(small_bbox: List, large_bbox: List) -> float:
+def calculate_overlap_ratio(small_bbox, large_bbox):
     """작은 bbox 기준 overlap ratio 계산"""
     ix1 = max(small_bbox[0], large_bbox[0])
     iy1 = max(small_bbox[1], large_bbox[1])
@@ -626,7 +625,7 @@ def calculate_overlap_ratio(small_bbox: List, large_bbox: List) -> float:
     return intersection / small_area if small_area > 0 else 0.0
 
 
-def extract_paddle_words_from_list(paddle_list: List) -> List[Dict]:
+def extract_paddle_words_from_list(paddle_list):
     """PaddleOCR 리스트에서 words 추출"""
     words = []
     
@@ -651,7 +650,7 @@ def extract_paddle_words_from_list(paddle_list: List) -> List[Dict]:
     return words
 
 
-def extract_logistics_words(logistics_ocr: List) -> List[Dict]:
+def extract_logistics_words(logistics_ocr):
     """물류 OCR에서 words 추출"""
     words = []
     

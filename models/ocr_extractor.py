@@ -5,10 +5,8 @@ PaddleOCR 3.x를 사용한 이미지 텍스트 인식 및 추출
 
 import os
 import torch
-from PIL import Image
-from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
 import threading
+from utils.file_utils import list_image_paths
 
 
 class OCRExtractor:
@@ -25,7 +23,7 @@ class OCRExtractor:
                     cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self, lang: str = 'korean', use_gpu: bool = True):
+    def __init__(self, lang='korean', use_gpu=True):
         """
         PaddleOCR 모델을 초기화합니다.
         
@@ -59,7 +57,7 @@ class OCRExtractor:
         print(f"[OCR] 초기화 완료")
         print(f"[시스템] GPU: {self.system_info.get('gpu_name', 'N/A')}")
     
-    def _get_system_info(self) -> Dict[str, Any]:
+    def _get_system_info(self):
         """시스템 정보를 수집합니다."""
         info = {
             'device': self.device.upper(),
@@ -75,7 +73,7 @@ class OCRExtractor:
         
         return info
     
-    def extract_text(self, image_path: str) -> Tuple[str, List[Dict[str, Any]]]:
+    def extract_text(self, image_path):
         """
         이미지에서 텍스트를 추출합니다.
         
@@ -83,7 +81,7 @@ class OCRExtractor:
             image_path: 이미지 파일 경로
             
         Returns:
-            Tuple[str, List[Dict]]: (추출된 전체 텍스트, 박스별 상세 정보)
+            추출된 전체 텍스트와 박스별 상세 정보
         """
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"이미지 파일을 찾을 수 없습니다: {image_path}")
@@ -126,7 +124,7 @@ class OCRExtractor:
         full_text = '\n'.join(text_lines)
         return full_text, boxes
     
-    def extract_text_with_stats(self, image_path: str) -> Dict[str, Any]:
+    def extract_text_with_stats(self, image_path):
         """
         이미지에서 텍스트를 추출하고 통계 정보를 포함하여 반환합니다.
         
@@ -134,7 +132,7 @@ class OCRExtractor:
             image_path: 이미지 파일 경로
             
         Returns:
-            Dict: 추출 결과 및 통계 정보
+            추출 결과 및 통계 정보
         """
         text, boxes = self.extract_text(image_path)
         
@@ -158,11 +156,7 @@ class OCRExtractor:
             }
         }
     
-    def batch_extract(
-        self, 
-        image_paths: List[str], 
-        progress_callback: Optional[callable] = None
-    ) -> List[Dict[str, Any]]:
+    def batch_extract(self, image_paths, progress_callback=None):
         """
         여러 이미지에서 텍스트를 일괄 추출합니다.
         
@@ -171,7 +165,7 @@ class OCRExtractor:
             progress_callback: 진행 상황 콜백 함수 (current, total)
             
         Returns:
-            List[Dict]: 각 이미지의 추출 결과
+            각 이미지의 추출 결과
         """
         results = []
         total = len(image_paths)
@@ -195,7 +189,7 @@ class OCRExtractor:
         return results
     
     @staticmethod
-    def get_image_files(folder_path: str) -> List[str]:
+    def get_image_files(folder_path):
         """
         폴더에서 이미지 파일 목록을 가져옵니다.
         
@@ -203,17 +197,6 @@ class OCRExtractor:
             folder_path: 폴더 경로
             
         Returns:
-            List[str]: 이미지 파일 경로 목록
+            이미지 파일 경로 목록
         """
-        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
-        folder = Path(folder_path)
-        
-        if not folder.exists():
-            raise FileNotFoundError(f"폴더를 찾을 수 없습니다: {folder_path}")
-        
-        image_files = []
-        for file in folder.iterdir():
-            if file.is_file() and file.suffix.lower() in image_extensions:
-                image_files.append(str(file))
-        
-        return sorted(image_files)
+        return list_image_paths(folder_path, require_exists=True)

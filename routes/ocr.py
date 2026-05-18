@@ -13,6 +13,7 @@ from flask import Blueprint, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 from pathlib import Path
 from models import OCRExtractor
+from utils.file_utils import IMAGE_EXTENSIONS, ensure_folder, expand_user_path
 
 # Blueprint 생성
 ocr_bp = Blueprint('ocr', __name__)
@@ -34,10 +35,9 @@ TASKS_STATE_FOLDER = Path('tasks_state')
 TASKS_STATE_FOLDER.mkdir(exist_ok=True)
 
 
-def get_image_files_recursive(folder_path: str) -> list:
+def get_image_files_recursive(folder_path):
     """폴더에서 이미지 파일 목록을 재귀적으로 가져옵니다 (하위 폴더 포함)."""
     print(f"[OCR 파일 검색] 폴더 검색 시작: {folder_path}", flush=True)
-    image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
     folder = Path(folder_path)
     
     if not folder.exists():
@@ -54,7 +54,7 @@ def get_image_files_recursive(folder_path: str) -> list:
             if file_count % 1000 == 0:
                 print(f"[OCR 파일 검색] {file_count}개 파일 검색 중... (현재 발견: {len(image_files)}개 이미지)", flush=True)
             
-            if file.is_file() and file.suffix.lower() in image_extensions:
+            if file.is_file() and file.suffix.lower() in IMAGE_EXTENSIONS:
                 image_files.append(str(file))
         
         print(f"[OCR 파일 검색] 검색 완료: 총 {file_count}개 파일 중 {len(image_files)}개 이미지 발견", flush=True)
@@ -207,7 +207,7 @@ def run_batch_ocr(task_id, folder_path, output_folder, start_from=0):
             # 출력 경로 생성 (하위 폴더 구조 유지)
             if relative_dir:
                 output_dir = os.path.join(output_folder, relative_dir)
-                os.makedirs(output_dir, exist_ok=True)
+                ensure_folder(output_dir)
                 output_file = os.path.join(output_dir, f"{base_name}.json")
             else:
                 output_file = os.path.join(output_folder, f"{base_name}.json")
@@ -420,8 +420,8 @@ def ocr_batch_start():
         output_folder = data.get('outputFolder', '').strip()
         
         # 경로 확장
-        folder_path = os.path.expanduser(folder_path)
-        output_folder = os.path.expanduser(output_folder)
+        folder_path = expand_user_path(folder_path)
+        output_folder = expand_user_path(output_folder)
         
         if not folder_path:
             return jsonify({'error': '이미지 폴더 경로가 필요합니다.'}), 400
@@ -433,7 +433,7 @@ def ocr_batch_start():
             return jsonify({'error': f'폴더를 찾을 수 없습니다: {folder_path}'}), 400
         
         # 출력 폴더 생성
-        os.makedirs(output_folder, exist_ok=True)
+        ensure_folder(output_folder)
         
         # 작업 초기화
         task_id = str(uuid.uuid4())
@@ -544,5 +544,3 @@ def ocr_batch_resume(task_id):
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
-

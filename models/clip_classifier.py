@@ -8,10 +8,10 @@ import torch
 from PIL import Image
 import clip
 import numpy as np
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from queue import Queue
+from utils.file_utils import is_image_file as is_supported_image_file, list_image_paths
 
 
 class CLIPClassifier:
@@ -505,18 +505,9 @@ class CLIPClassifier:
     @staticmethod
     def is_image_file(filename):
         """이미지 파일인지 확인합니다."""
-        valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
-        return Path(filename).suffix.lower() in valid_extensions
+        return is_supported_image_file(filename)
     
     @staticmethod
     def get_image_files(folder_path):
         """폴더 내 이미지 파일 경로를 반환합니다 (하위 폴더 제외)."""
-        folder = Path(folder_path)
-        if not folder.exists():
-            return []
-        
-        image_files = []
-        for f in folder.iterdir():  # 해당 폴더만 (하위 폴더 제외)
-            if f.is_file() and CLIPClassifier.is_image_file(f.name):
-                image_files.append(str(f))
-        return sorted(image_files)
+        return list_image_paths(folder_path)

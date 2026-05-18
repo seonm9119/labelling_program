@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 from pathlib import Path
 
 from models import CLIPClassifier
+from utils.file_utils import ensure_folder, expand_user_path
 
 # Blueprint 생성
 clip_bp = Blueprint('clip', __name__)
@@ -156,8 +157,7 @@ def analyze_start():
             return jsonify({'error': '기준 이미지가 선택되지 않았습니다.'}), 400
         
         # 폴더 경로 확인
-        folder_path = request.form.get('folderPath', '').strip()
-        folder_path = os.path.expanduser(folder_path)
+        folder_path = expand_user_path(request.form.get('folderPath'))
         
         if not folder_path:
             return jsonify({'error': '비교할 폴더 경로가 필요합니다.'}), 400
@@ -259,8 +259,7 @@ def multi_analyze_start():
     """다중 기준 이미지 분석을 시작합니다."""
     try:
         # 폴더 경로 확인
-        folder_path = request.form.get('folderPath', '').strip()
-        folder_path = os.path.expanduser(folder_path)
+        folder_path = expand_user_path(request.form.get('folderPath'))
         
         if not folder_path:
             print(f"[에러] 비교할 폴더 경로가 필요합니다.")
@@ -288,8 +287,7 @@ def multi_analyze_start():
                 break
             
             image_file = request.files[image_key]
-            target_folder = request.form.get(folder_key, '').strip()
-            target_folder = os.path.expanduser(target_folder)
+            target_folder = expand_user_path(request.form.get(folder_key))
             
             if image_file.filename == '':
                 idx += 1
@@ -408,9 +406,9 @@ def classify():
             return jsonify({'error': '대상 폴더가 지정되지 않았습니다.'}), 400
         
         # 대상 폴더 생성
-        target_folder = os.path.expanduser(target_folder)
+        target_folder = expand_user_path(target_folder)
         if not os.path.exists(target_folder):
-            os.makedirs(target_folder)
+            ensure_folder(target_folder)
         
         # 저장된 결과 가져오기
         with tasks_lock:
@@ -527,9 +525,9 @@ def multi_classify():
         
         # 대상 폴더들 생성
         for ref in reference_images:
-            target_folder = os.path.expanduser(ref['targetFolder'])
+            target_folder = expand_user_path(ref['targetFolder'])
             if target_folder and not os.path.exists(target_folder):
-                os.makedirs(target_folder)
+                ensure_folder(target_folder)
         
         moved_files = []
         errors = []
@@ -549,7 +547,7 @@ def multi_classify():
                 # 파일이 없지만, 이미 이동된 파일일 가능성 확인
                 already_moved = False
                 for ref in reference_images:
-                    target_folder = os.path.expanduser(ref['targetFolder'])
+                    target_folder = expand_user_path(ref['targetFolder'])
                     if target_folder and os.path.exists(os.path.join(target_folder, filename)):
                         already_moved = True
                         moved_file_paths.add(src_path)
@@ -575,7 +573,7 @@ def multi_classify():
                     continue
                 
                 # 최고 유사도 기준 이미지의 폴더로 분류
-                target_folder = os.path.expanduser(best_match['targetFolder'])
+                target_folder = expand_user_path(best_match['targetFolder'])
                 if not target_folder:
                     continue
                 
@@ -626,7 +624,7 @@ def multi_classify():
                 # 임계치를 만족하는 것 중 가장 높은 유사도 선택
                 best_qualified = max(qualified, key=lambda x: x['similarity'])
                 
-                target_folder = os.path.expanduser(best_qualified['targetFolder'])
+                target_folder = expand_user_path(best_qualified['targetFolder'])
                 if not target_folder:
                     continue
                 

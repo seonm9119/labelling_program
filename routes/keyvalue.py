@@ -3,9 +3,17 @@ Key-Value 맵핑 라우트
 """
 
 import os
-import json
 import shutil
 from flask import Blueprint, render_template, request, jsonify, send_file
+from utils.file_utils import (
+    ANNOTATION_IMAGE_EXTENSIONS,
+    ensure_folder,
+    expand_user_path,
+    list_image_filenames,
+    list_json_filenames,
+    load_json_file,
+    save_json_file,
+)
 
 # Blueprint 생성
 keyvalue_bp = Blueprint('keyvalue', __name__)
@@ -62,12 +70,12 @@ def editor_check_folder():
     if not folder_path:
         return jsonify({'error': '폴더 경로가 필요합니다.'}), 400
     
-    expanded_path = os.path.expanduser(folder_path)
+    expanded_path = expand_user_path(folder_path)
     
     if not os.path.exists(expanded_path):
         if create_if_not_exists:
             try:
-                os.makedirs(expanded_path, exist_ok=True)
+                ensure_folder(expanded_path)
             except Exception as e:
                 return jsonify({'error': f'폴더 생성 실패: {str(e)}'}), 500
         else:
@@ -78,10 +86,9 @@ def editor_check_folder():
     
     files = []
     if file_type == 'image':
-        image_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp')
-        all_files = [f for f in os.listdir(expanded_path) if f.lower().endswith(image_extensions)]
+        all_files = list_image_filenames(expanded_path, ANNOTATION_IMAGE_EXTENSIONS)
         if save_folder:
-            save_folder = os.path.expanduser(save_folder)
+            save_folder = expand_user_path(save_folder)
             for f in all_files:
                 original_path = os.path.join(expanded_path, f)
                 save_path = os.path.join(save_folder, f)
@@ -90,16 +97,15 @@ def editor_check_folder():
         else:
             files = all_files
     elif file_type == 'json':
-        all_json_files = [f for f in os.listdir(expanded_path) if f.lower().endswith('.json')]
+        all_json_files = list_json_filenames(expanded_path)
         image_folder = data.get('imageFolder')
         if image_folder and save_folder:
-            image_folder = os.path.expanduser(image_folder)
-            save_folder = os.path.expanduser(save_folder)
-            image_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp')
+            image_folder = expand_user_path(image_folder)
+            save_folder = expand_user_path(save_folder)
             for json_file in all_json_files:
                 base_name = os.path.splitext(json_file)[0]
                 image_found = False
-                for ext in image_extensions:
+                for ext in ANNOTATION_IMAGE_EXTENSIONS:
                     image_filename = base_name + ext
                     original_image_path = os.path.join(image_folder, image_filename)
                     save_image_path = os.path.join(save_folder, image_filename)
@@ -131,11 +137,11 @@ def editor_load_image():
     if not folder or not file:
         return 'Missing parameters', 400
     
-    folder = os.path.expanduser(folder)
+    folder = expand_user_path(folder)
     file_path = os.path.join(folder, file)
     
     if not os.path.exists(file_path) and save_folder:
-        save_folder = os.path.expanduser(save_folder)
+        save_folder = expand_user_path(save_folder)
         file_path = os.path.join(save_folder, file)
     
     if not os.path.exists(file_path):
@@ -157,21 +163,20 @@ def editor_load_json():
     
     file_path = None
     if save_folder:
-        save_folder = os.path.expanduser(save_folder)
+        save_folder = expand_user_path(save_folder)
         save_file_path = os.path.join(save_folder, filename)
         if os.path.exists(save_file_path):
             file_path = save_file_path
     
     if not file_path:
-        folder_path = os.path.expanduser(folder_path)
+        folder_path = expand_user_path(folder_path)
         file_path = os.path.join(folder_path, filename)
     
     if not os.path.exists(file_path):
         return jsonify({'success': False, 'error': 'JSON 파일이 없습니다.'})
     
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            json_data = json.load(f)
+        json_data = load_json_file(file_path)
         return jsonify({'success': True, 'data': json_data})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -190,11 +195,11 @@ def editor_save_json():
     if not folder_path or not filename or json_data is None:
         return jsonify({'error': '필수 파라미터가 누락되었습니다.'}), 400
     
-    folder_path = os.path.expanduser(folder_path)
+    folder_path = expand_user_path(folder_path)
     file_path = os.path.join(folder_path, filename)
     
     try:
-        os.makedirs(folder_path, exist_ok=True)
+        ensure_folder(folder_path)
         
         # LLM 학습용: 토큰 절약을 위한 최적화
         if isinstance(json_data, dict) and 'annotations' in json_data:
@@ -207,12 +212,11 @@ def editor_save_json():
                     if 'bbox' in ann and isinstance(ann['bbox'], list):
                         ann['bbox'] = [int(round(x)) for x in ann['bbox']]
         
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, separators=(',', ':'), ensure_ascii=False)
+        save_json_file(file_path, json_data, compact=True)
         
         image_moved = False
         if image_path and image_filename:
-            image_path = os.path.expanduser(image_path)
+            image_path = expand_user_path(image_path)
             if os.path.exists(image_path) and os.path.isfile(image_path):
                 dst_image_path = os.path.join(folder_path, image_filename)
                 try:
@@ -238,7 +242,7 @@ def batch_browse_folder():
         current_path = data.get('path', '/').strip()
         
         # 경로 확장
-        current_path = os.path.expanduser(current_path)
+        current_path = expand_user_path(current_path)
         
         # 기본 경로 설정
         if not current_path or current_path == '':
@@ -300,7 +304,7 @@ def batch_check_folder():
             return jsonify({'error': '폴더 경로를 입력하세요.'}), 400
         
         # 경로 확장
-        folder_path = os.path.expanduser(folder_path)
+        folder_path = expand_user_path(folder_path)
         
         if not os.path.exists(folder_path):
             return jsonify({'error': '폴더가 존재하지 않습니다.'}), 404
@@ -311,14 +315,9 @@ def batch_check_folder():
         # 파일 목록 가져오기
         files = []
         if file_type == 'image':
-            extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'}
-            files = [f for f in os.listdir(folder_path) 
-                    if os.path.isfile(os.path.join(folder_path, f)) 
-                    and os.path.splitext(f.lower())[1] in extensions]
+            files = list_image_filenames(folder_path, ANNOTATION_IMAGE_EXTENSIONS)
         elif file_type == 'json':
-            files = [f for f in os.listdir(folder_path) 
-                    if os.path.isfile(os.path.join(folder_path, f)) 
-                    and f.lower().endswith('.json')]
+            files = list_json_filenames(folder_path)
         
         return jsonify({
             'success': True,
@@ -386,13 +385,13 @@ def batch_process_image():
             return jsonify({'error': '필수 파라미터가 누락되었습니다.'}), 400
         
         # 경로 확장
-        image_folder = os.path.expanduser(image_folder)
-        logistics_folder = os.path.expanduser(logistics_folder)
-        paddle_folder = os.path.expanduser(paddle_folder)
-        output_folder = os.path.expanduser(output_folder)
+        image_folder = expand_user_path(image_folder)
+        logistics_folder = expand_user_path(logistics_folder)
+        paddle_folder = expand_user_path(paddle_folder)
+        output_folder = expand_user_path(output_folder)
         
         # 출력 폴더 생성 (없으면)
-        os.makedirs(output_folder, exist_ok=True)
+        ensure_folder(output_folder)
         
         # 파일명에서 확장자 제거
         base_name = os.path.splitext(image_file)[0]
@@ -411,11 +410,8 @@ def batch_process_image():
             return jsonify({'error': f'PaddleOCR 파일을 찾을 수 없습니다: {json_name}'}), 404
         
         # OCR 파일 읽기
-        with open(logistics_file, 'r', encoding='utf-8') as f:
-            logistics_ocr = json.load(f)
-        
-        with open(paddle_file, 'r', encoding='utf-8') as f:
-            paddle_ocr = json.load(f)
+        logistics_ocr = load_json_file(logistics_file)
+        paddle_ocr = load_json_file(paddle_file)
         
         # 자동 맵핑 수행
         mapped_result = perform_auto_mapping(
@@ -425,8 +421,7 @@ def batch_process_image():
         )
         
         # JSON 파일 저장
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(mapped_result, f, ensure_ascii=False, indent=2)
+        save_json_file(output_file, mapped_result)
         
         # 통계 계산
         annotations = mapped_result.get('annotations', [])

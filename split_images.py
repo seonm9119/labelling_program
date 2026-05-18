@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
 이미지를 20개씩 나눠서 서브폴더에 정리하는 스크립트
-사용법: python split_images.py <소스폴더경로>
+사용법: python3 split_images.py <소스폴더경로>
 """
 
-import os
 import shutil
 import sys
 import re
 from pathlib import Path
+from utils.file_utils import IMAGE_EXTENSIONS
 
 # 설정
 IMAGES_PER_FOLDER = 10  # 폴더당 이미지 개수
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
 
 
 def natural_sort_key(text):
@@ -26,7 +25,7 @@ def natural_sort_key(text):
     return [convert(c) for c in re.split(r'(\d+)', str(text))]
 
 
-def split_images(source_folder: str):
+def split_images(source_folder):
     source_path = Path(source_folder)
     
     if not source_path.exists():
@@ -73,8 +72,8 @@ def split_images(source_folder: str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("사용법: python split_images.py <소스폴더경로>")
-        print("예시: python split_images.py /path/to/images")
+        print("사용법: python3 split_images.py <소스폴더경로>")
+        print("예시: python3 split_images.py /path/to/images")
         sys.exit(1)
     
     source_folder = sys.argv[1]
