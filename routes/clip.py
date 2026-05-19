@@ -8,11 +8,10 @@ import threading
 import uuid
 from fastapi import APIRouter, Request
 
-from backend.models import CLIPClassifier
-from backend.config import UPLOAD_DIR
-from backend.responses import json_response
-from backend.templates import templates
-from backend.utils.file_utils import ensure_folder, expand_user_path, safe_filename
+from models import CLIPClassifier
+from config import UPLOAD_DIR
+from responses import json_response
+from utils.file_utils import ensure_folder, expand_user_path, safe_filename
 
 # Router 생성
 clip_router = APIRouter()
@@ -125,21 +124,6 @@ def run_multi_analysis(task_id, reference_images, image_files, classify_mode):
         with tasks_lock:
             tasks[task_id]['status'] = 'error'
             tasks[task_id]['error'] = str(e)
-
-
-# ============================================
-# 페이지 라우트
-# ============================================
-
-@clip_router.get('/')
-@clip_router.get('/clip')
-def clip_page(request: Request):
-    """CLIP 이미지 분석 및 분류 페이지"""
-    return templates.TemplateResponse('clip_classifier.html', {
-        'request': request,
-        'system_info': SYSTEM_INFO,
-        'active_page': 'clip'
-    })
 
 
 # ============================================

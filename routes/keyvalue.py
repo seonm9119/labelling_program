@@ -6,9 +6,8 @@ import os
 import shutil
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, PlainTextResponse
-from backend.responses import json_response
-from backend.templates import templates
-from backend.utils.file_utils import (
+from responses import json_response
+from utils.file_utils import (
     ANNOTATION_IMAGE_EXTENSIONS,
     ensure_folder,
     expand_user_path,
@@ -20,47 +19,6 @@ from backend.utils.file_utils import (
 
 # Router 생성
 keyvalue_router = APIRouter()
-
-
-# ============================================
-# 페이지 라우트
-# ============================================
-
-@keyvalue_router.get('/keyvalue')
-def keyvalue_mapper(request: Request):
-    """Key-Value 맵핑 페이지"""
-    from backend.routes.clip import get_system_info
-    return templates.TemplateResponse('keyvalue_mapper.html', {
-        'request': request,
-        'system_info': get_system_info(),
-        'active_page': 'keyvalue'
-    })
-
-
-@keyvalue_router.get('/keyvalue/batch')
-def keyvalue_batch(request: Request):
-    """Key-Value 대용량 자동처리 페이지"""
-    from backend.routes.clip import get_system_info
-    default_data_path = os.environ.get('DEFAULT_DATA_PATH', '/data')
-    return templates.TemplateResponse('keyvalue_batch.html', {
-        'request': request,
-        'system_info': get_system_info(),
-        'active_page': 'keyvalue_batch',
-        'default_data_path': default_data_path
-    })
-
-
-@keyvalue_router.get('/keyvalue/editor')
-def keyvalue_editor(request: Request):
-    """Key-Value 수정 뷰어 페이지"""
-    from backend.routes.clip import get_system_info
-    default_data_path = os.environ.get('DEFAULT_DATA_PATH', '/data')
-    return templates.TemplateResponse('keyvalue_editor.html', {
-        'request': request,
-        'system_info': get_system_info(),
-        'active_page': 'keyvalue_editor',
-        'default_data_path': default_data_path
-    })
 
 
 # ============================================
@@ -341,7 +299,7 @@ async def batch_check_folder(request: Request):
 async def batch_auto_mapping(request: Request):
     """JSON 데이터를 받아서 자동 맵핑 수행 (클라이언트 업로드 방식)"""
     try:
-        from backend.models.auto_mapping import perform_auto_mapping
+        from models.auto_mapping import perform_auto_mapping
         
         data = await request.json()
         image_name = data.get('image_name')
@@ -378,7 +336,7 @@ async def batch_auto_mapping(request: Request):
 async def batch_process_image(request: Request):
     """단일 이미지에 대한 자동 맵핑 처리 및 저장"""
     try:
-        from backend.models.auto_mapping import perform_auto_mapping
+        from models.auto_mapping import perform_auto_mapping
         
         data = await request.json()
         image_file = data.get('imageFile')

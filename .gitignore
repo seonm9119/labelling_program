@@ -28,6 +28,7 @@ Thumbs.db
 
 # Uploads (user data)
 uploads/
-.gitignore
 split_images.py
 .dockerignore
+assets/
+*.md

@@ -17,20 +17,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# PaddlePaddle GPU 설치 (CUDA 11.8용)
-RUN python -m pip install paddlepaddle-gpu==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
-
-# PaddleOCR 설치
-RUN python -m pip install paddleocr
-
 # Python 패키지 설치
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 애플리케이션 코드 복사
 COPY app.py .
-COPY backend/ backend/
-COPY frontend/ frontend/
+COPY config.py .
+COPY responses.py .
+COPY models/ models/
+COPY routes/ routes/
+COPY utils/ utils/
 
 # 포트 노출
 EXPOSE 5000

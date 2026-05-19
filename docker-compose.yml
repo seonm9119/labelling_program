@@ -8,8 +8,11 @@ services:
     volumes:
       # 코드 변경 시 바로 반영
       - ./app.py:/app/app.py:ro
-      - ./backend:/app/backend:ro
-      - ./frontend:/app/frontend:ro
+      - ./config.py:/app/config.py:ro
+      - ./responses.py:/app/responses.py:ro
+      - ./models:/app/models:ro
+      - ./routes:/app/routes:ro
+      - ./utils:/app/utils:ro
       # CLIP 모델 캐시
       - ~/.cache/clip:/root/.cache/clip
       # 호스트 파일시스템 마운트
@@ -19,9 +22,12 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - APP_DEBUG=1
       - DEFAULT_DATA_PATH=/
+      - PADDLE_OCR_API_URL=http://paddle-ocr:8001/inference
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    networks:
+      - model-network
     deploy:
       resources:
         reservations:
@@ -30,3 +36,7 @@ services:
               count: all
               capabilities: [gpu]
     restart: unless-stopped
+
+networks:
+  model-network:
+    external: true

@@ -11,7 +11,7 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from queue import Queue
-from backend.utils.file_utils import is_image_file as is_supported_image_file, list_image_paths
+from utils.file_utils import is_image_file as is_supported_image_file, list_image_paths
 
 
 class CLIPClassifier:
