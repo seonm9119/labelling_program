@@ -1,10 +1,10 @@
 services:
-  labelling:
+  labeling_program:
     build: .
     image: labelling_program:latest
-    container_name: labelling
+    container_name: labeling_program
     ports:
-      - "127.0.0.1:5000:5000"
+      - "127.0.0.1:5001:5001"
     volumes:
       # 코드 변경 시 바로 반영
       - ./app.py:/app/app.py:ro
@@ -21,6 +21,7 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - APP_DEBUG=1
+      - APP_PORT=5001
       - DEFAULT_DATA_PATH=/
       - PADDLE_OCR_API_URL=http://paddle-ocr:8001/inference
     dns:

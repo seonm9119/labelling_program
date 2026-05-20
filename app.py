@@ -58,7 +58,8 @@ def run_server():
     import uvicorn
 
     debug_mode = os.environ.get('APP_DEBUG', '0') == '1'
-    uvicorn.run('app:app', host='0.0.0.0', port=5000, reload=debug_mode)
+    port = int(os.environ.get('APP_PORT', '5001'))
+    uvicorn.run('app:app', host='0.0.0.0', port=port, reload=debug_mode)
 
 
 if __name__ == '__main__':

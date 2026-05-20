@@ -30,7 +30,7 @@ COPY routes/ routes/
 COPY utils/ utils/
 
 # 포트 노출
-EXPOSE 5000
+EXPOSE 5001
 
 # 서버 실행 (FastAPI 서버)
 CMD ["python", "app.py"]
