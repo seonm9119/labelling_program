@@ -24,6 +24,8 @@ services:
       - APP_PORT=5001
       - DEFAULT_DATA_PATH=/
       - PADDLE_OCR_API_URL=http://paddle-ocr:8001/inference
+      - SERVER_FOLDER_ROOT=/mnt/h/data
+      - SERVER_BULK_OUTPUT_ROOT=/home/nami/repo/labelling_program/outputs/paddle_ocr
     dns:
       - 8.8.8.8
       - 8.8.4.4

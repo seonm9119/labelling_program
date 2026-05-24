@@ -10,8 +10,9 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from PIL import Image as PILImage
-from config import PADDLE_OCR_API_TIMEOUT, PADDLE_OCR_API_URL, UPLOAD_DIR
+from config import PADDLE_OCR_API_TIMEOUT, PADDLE_OCR_API_URL, SERVER_BULK_OUTPUT_ROOT, SERVER_FOLDER_ROOT, UPLOAD_DIR
 from responses import json_response
+from utils.file_utils import ANNOTATION_IMAGE_EXTENSIONS, list_image_paths
 
 paddle_ocr_router = APIRouter()
 BULK_OCR_JOBS = {}
@@ -75,6 +76,12 @@ async def extract_bulk_paddle_ocr_for_labeling(request: Request):
 
 @paddle_ocr_router.post('/api/labeling/paddle_ocr/bulk/jobs')
 async def start_bulk_paddle_ocr_job(request: Request):
+    content_type = request.headers.get('content-type', '')
+
+    if content_type.startswith('application/json'):
+        request_payload = await request.json()
+        return start_server_path_bulk_paddle_ocr_job(request_payload)
+
     form = await request.form()
     uploaded_images = form.getlist('images')
 
@@ -135,6 +142,46 @@ async def start_bulk_paddle_ocr_job(request: Request):
         'jobId': bulk_job_id,
         'status': 'queued',
         'total': len(saved_images)
+    })
+
+
+@paddle_ocr_router.get('/api/labeling/paddle_ocr/server-folders')
+def list_server_folders(path=''):
+    try:
+        current_folder = resolve_server_input_folder(path or str(SERVER_FOLDER_ROOT))
+    except ValueError as error:
+        return json_response({'success': False, 'error': str(error)}, status_code=400)
+
+    child_folders = []
+    try:
+        folder_entries = sorted(current_folder.iterdir(), key=lambda folder_entry: folder_entry.name.lower())
+    except OSError as error:
+        return json_response({'success': False, 'error': f'폴더를 열 수 없습니다: {error}'}, status_code=400)
+
+    for folder_entry in folder_entries:
+        if not folder_entry.is_dir():
+            continue
+
+        child_folders.append({
+            'name': folder_entry.name,
+            'path': str(folder_entry)
+        })
+
+    root_folder = SERVER_FOLDER_ROOT.resolve(strict=False)
+    parent_path = ''
+    if current_folder != root_folder:
+        parent_path = str(current_folder.parent)
+
+    image_paths = list_image_paths(str(current_folder), recursive=True, image_extensions=ANNOTATION_IMAGE_EXTENSIONS)
+
+    return json_response({
+        'success': True,
+        'rootPath': str(root_folder),
+        'currentPath': str(current_folder),
+        'parentPath': parent_path,
+        'defaultOutputPath': str(SERVER_BULK_OUTPUT_ROOT.resolve(strict=False)),
+        'imageCount': len(image_paths),
+        'folders': child_folders
     })
 
 
@@ -257,6 +304,9 @@ def run_bulk_paddle_ocr_job(bulk_job_id):
             paddle_labeling_result = extract_paddle_labeling_result(image_filename, image_bytes)
             paddle_labeling_result['index'] = image_index
             paddle_labeling_result['image']['url'] = f'/api/labeling/paddle_ocr/bulk/jobs/{bulk_job_id}/images/{image_index}'
+            output_path = save_bulk_ocr_result_file(bulk_ocr_job.get('outputFolderPath'), paddle_labeling_result)
+            if output_path:
+                paddle_labeling_result['outputPath'] = output_path
 
             with BULK_OCR_JOB_LOCK:
                 current_job = BULK_OCR_JOBS[bulk_job_id]
@@ -298,14 +348,137 @@ def build_bulk_ocr_job_response(bulk_ocr_job):
         'errorCount': bulk_ocr_job['errorCount'],
         'results': bulk_ocr_job['results'],
         'errors': bulk_ocr_job['errors'],
+        'inputFolderPath': bulk_ocr_job.get('inputFolderPath', ''),
+        'outputFolderPath': bulk_ocr_job.get('outputFolderPath', ''),
         'createdAt': bulk_ocr_job['createdAt'],
         'updatedAt': bulk_ocr_job['updatedAt']
     }
 
 
+def start_server_path_bulk_paddle_ocr_job(request_payload):
+    input_folder_path = request_payload.get('inputFolderPath', '')
+    output_folder_path = request_payload.get('outputFolderPath', '')
+
+    try:
+        input_folder = resolve_server_input_folder(input_folder_path)
+        output_folder_root = resolve_server_output_folder(output_folder_path or str(SERVER_BULK_OUTPUT_ROOT))
+    except ValueError as error:
+        return json_response({'success': False, 'error': str(error)}, status_code=400)
+
+    image_paths = list_image_paths(str(input_folder), recursive=True, image_extensions=ANNOTATION_IMAGE_EXTENSIONS, require_exists=True)
+
+    if not image_paths:
+        return json_response({'success': False, 'error': '선택한 서버 폴더에서 처리할 이미지가 없습니다.'}, status_code=400)
+
+    bulk_job_id = uuid.uuid4().hex
+    job_output_folder = output_folder_root / bulk_job_id
+    job_output_folder.mkdir(parents=True, exist_ok=True)
+
+    saved_images = []
+    for image_path_text in image_paths:
+        image_path = Path(image_path_text)
+        image_index = len(saved_images) + 1
+        try:
+            image_filename = str(image_path.relative_to(input_folder))
+        except ValueError:
+            image_filename = image_path.name
+
+        saved_images.append({
+            'index': image_index,
+            'filename': image_filename,
+            'path': str(image_path)
+        })
+
+    now = time.time()
+    bulk_ocr_job = {
+        'jobId': bulk_job_id,
+        'status': 'queued',
+        'total': len(saved_images),
+        'processedCount': 0,
+        'errorCount': 0,
+        'images': saved_images,
+        'results': [],
+        'errors': [],
+        'inputFolderPath': str(input_folder),
+        'outputFolderPath': str(job_output_folder),
+        'createdAt': now,
+        'updatedAt': now
+    }
+
+    with BULK_OCR_JOB_LOCK:
+        BULK_OCR_JOBS[bulk_job_id] = bulk_ocr_job
+
+    bulk_job_thread = threading.Thread(target=run_bulk_paddle_ocr_job, args=(bulk_job_id,), daemon=True)
+    bulk_job_thread.start()
+
+    return json_response({
+        'success': True,
+        'jobId': bulk_job_id,
+        'status': 'queued',
+        'total': len(saved_images),
+        'inputFolderPath': str(input_folder),
+        'outputFolderPath': str(job_output_folder)
+    })
+
+
+def resolve_server_input_folder(raw_folder_path):
+    return resolve_server_folder(raw_folder_path, SERVER_FOLDER_ROOT, '서버 입력 폴더')
+
+
+def resolve_server_output_folder(raw_folder_path):
+    output_folder = resolve_server_folder(raw_folder_path, SERVER_BULK_OUTPUT_ROOT, '서버 결과 폴더', allow_missing=True)
+    output_folder.mkdir(parents=True, exist_ok=True)
+    return output_folder
+
+
+def resolve_server_folder(raw_folder_path, allowed_root, folder_label, allow_missing=False):
+    if not raw_folder_path:
+        raise ValueError(f'{folder_label}를 선택하세요.')
+
+    root_folder = allowed_root.resolve(strict=False)
+    requested_folder = Path(raw_folder_path).expanduser()
+    if not requested_folder.is_absolute():
+        requested_folder = root_folder / requested_folder
+
+    resolved_folder = requested_folder.resolve(strict=False)
+    if resolved_folder != root_folder and root_folder not in resolved_folder.parents:
+        raise ValueError(f'{folder_label}는 {root_folder} 아래에서만 선택할 수 있습니다.')
+
+    if not allow_missing and not resolved_folder.is_dir():
+        raise ValueError(f'{folder_label}를 찾을 수 없습니다: {resolved_folder}')
+
+    return resolved_folder
+
+
+def save_bulk_ocr_result_file(output_folder_path, paddle_labeling_result):
+    if not output_folder_path:
+        return ''
+
+    output_folder = Path(output_folder_path)
+    output_folder.mkdir(parents=True, exist_ok=True)
+    image_filename = paddle_labeling_result.get('image', {}).get('filename', 'image')
+    image_index = paddle_labeling_result.get('index', 0)
+    result_filename = make_safe_bulk_result_filename(image_filename, image_index)
+    result_path = output_folder / result_filename
+    result_payload = {
+        'image': paddle_labeling_result.get('image', {}),
+        'boxes': paddle_labeling_result.get('boxes', [])
+    }
+
+    result_path.write_text(json.dumps(result_payload, ensure_ascii=False, indent=2), encoding='utf-8')
+    return str(result_path)
+
+
 def make_safe_bulk_filename(image_filename):
     safe_filename = ''.join(character if character.isalnum() or character in '._-' else '_' for character in image_filename)
     return safe_filename or 'image'
+
+
+def make_safe_bulk_result_filename(image_filename, image_index):
+    image_stem = str(Path(str(image_filename).replace('\\', '/')).with_suffix(''))
+    safe_stem = ''.join(character if character.isalnum() or character in '._-' else '_' for character in image_stem)
+    safe_stem = safe_stem.strip('._') or 'image'
+    return f'{int(image_index):05d}_{safe_stem}.json'
 
 
 def request_paddle_ocr(image_bytes):
