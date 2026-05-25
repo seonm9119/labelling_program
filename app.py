@@ -13,9 +13,10 @@ def create_app():
 
     UPLOAD_DIR.mkdir(exist_ok=True)
 
-    from routes import clip_router, paddle_ocr_router, keyvalue_router
+    from routes import clip_router, deepseek_ocr_router, paddle_ocr_router, keyvalue_router
 
     app.include_router(clip_router)
+    app.include_router(deepseek_ocr_router)
     app.include_router(paddle_ocr_router)
     app.include_router(keyvalue_router)
 
@@ -29,6 +30,7 @@ def create_app():
             'health': '/health',
             'groups': {
                 'paddle_ocr': ['/api/labeling/paddle_ocr'],
+                'deepseek_ocr': ['/api/labeling/deepseek_ocr'],
                 'clip': ['/analyze/start', '/multi-analyze/start'],
                 'keyvalue': ['/editor/check-folder', '/batch/check-folder', '/batch/auto-mapping']
             }
