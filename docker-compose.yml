@@ -13,13 +13,10 @@ services:
       - ./models:/app/models:ro
       - ./routes:/app/routes:ro
       - ./utils:/app/utils:ro
-      # CLIP 모델 캐시
-      - ~/.cache/clip:/root/.cache/clip
       # 호스트 파일시스템 마운트
       - /home:/home
       - /mnt:/mnt
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
       - APP_DEBUG=1
       - APP_PORT=5001
       - DEFAULT_DATA_PATH=/
@@ -56,13 +53,6 @@ services:
       - 8.8.4.4
     networks:
       - model-network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     restart: unless-stopped
 
 networks:

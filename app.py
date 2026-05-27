@@ -7,15 +7,14 @@ from config import UPLOAD_DIR
 def create_app():
     app = FastAPI(
         title='Labelling Programs API',
-        description='Backend APIs for OCR, CLIP image classification, and Key-Value labeling workflows.',
+        description='Backend APIs for OCR and Key-Value labeling workflows.',
         version='0.1.0'
     )
 
     UPLOAD_DIR.mkdir(exist_ok=True)
 
-    from routes import clip_router, deepseek_ocr_router, paddle_ocr_router, keyvalue_router
+    from routes import deepseek_ocr_router, paddle_ocr_router, keyvalue_router
 
-    app.include_router(clip_router)
     app.include_router(deepseek_ocr_router)
     app.include_router(paddle_ocr_router)
     app.include_router(keyvalue_router)
@@ -31,7 +30,6 @@ def create_app():
             'groups': {
                 'paddle_ocr': ['/api/labeling/paddle_ocr'],
                 'deepseek_ocr': ['/api/labeling/deepseek_ocr'],
-                'clip': ['/analyze/start', '/multi-analyze/start'],
                 'keyvalue': ['/editor/check-folder', '/batch/check-folder', '/batch/auto-mapping']
             }
         }

@@ -3,6 +3,7 @@ import json
 import shutil
 import threading
 import time
+import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
@@ -11,7 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from config import OCR_NOTIFY_EMAIL_SUBJECT_PREFIX, PADDLE_OCR_API_TIMEOUT, PADDLE_OCR_API_URL, PADDLE_OCR_RELEASE_URL, SERVER_BULK_OUTPUT_ROOT, SERVER_FOLDER_ROOT, UPLOAD_DIR
 from responses import json_response
 from utils.email_notification import send_email_notification_async
-from utils.file_utils import ANNOTATION_IMAGE_EXTENSIONS, list_image_paths
+from utils.file_utils import ANNOTATION_IMAGE_EXTENSIONS, list_child_folders, list_image_paths
 from utils.google_email import (
     build_google_email_auth_url,
     complete_google_email_oauth,
@@ -31,6 +32,7 @@ paddle_ocr_router = APIRouter()
 BULK_OCR_JOBS = {}
 BULK_OCR_JOB_LOCK = threading.Lock()
 BULK_OCR_JOB_DIR = UPLOAD_DIR / 'paddle_ocr_bulk_jobs'
+BULK_OCR_RESULT_HISTORY_LIMIT = 200
 
 
 @paddle_ocr_router.post('/api/labeling/paddle_ocr')
@@ -166,28 +168,17 @@ def list_server_folders(path=''):
     except ValueError as error:
         return json_response({'success': False, 'error': str(error)}, status_code=400)
 
-    child_folders = []
     try:
-        folder_entries = sorted(current_folder.iterdir(), key=lambda folder_entry: folder_entry.name.lower())
+        child_folders = list_child_folders(current_folder)
     except OSError as error:
         return json_response({'success': False, 'error': f'폴더를 열 수 없습니다: {error}'}, status_code=400)
-
-    for folder_entry in folder_entries:
-        if not folder_entry.is_dir():
-            continue
-
-        child_folders.append({
-            'name': folder_entry.name,
-            'path': str(folder_entry)
-        })
 
     root_folder = SERVER_FOLDER_ROOT.resolve(strict=False)
     parent_path = ''
     if current_folder != root_folder:
         parent_path = str(current_folder.parent)
 
-    image_paths = list_image_paths(str(current_folder), recursive=True, image_extensions=ANNOTATION_IMAGE_EXTENSIONS)
-    can_select_current_path = current_folder != root_folder and len(image_paths) > 0
+    can_select_current_path = current_folder != root_folder
 
     return json_response({
         'success': True,
@@ -195,7 +186,6 @@ def list_server_folders(path=''):
         'currentPath': str(current_folder),
         'parentPath': parent_path,
         'defaultOutputPath': str(SERVER_BULK_OUTPUT_ROOT.resolve(strict=False)),
-        'imageCount': len(image_paths),
         'canSelectCurrentPath': can_select_current_path,
         'folders': child_folders
     })
@@ -359,42 +349,49 @@ def stream_bulk_paddle_labeling_results(bulk_images):
         'total': total_count
     })
 
-    for image_index, bulk_image in enumerate(bulk_images, start=1):
-        image_filename = bulk_image['filename']
+    try:
+        for image_index, bulk_image in enumerate(bulk_images, start=1):
+            image_filename = bulk_image['filename']
 
-        try:
-            paddle_labeling_result = extract_paddle_labeling_result(image_filename, bulk_image['image_bytes'])
-            processed_count += 1
-            yield encode_bulk_ocr_event({
-                'success': True,
-                'type': 'result',
-                'index': image_index,
-                'total': total_count,
-                **paddle_labeling_result
-            })
-        except Exception as error:
-            error_count += 1
-            yield encode_bulk_ocr_event({
-                'success': False,
-                'type': 'error',
-                'index': image_index,
-                'total': total_count,
-                'filename': image_filename,
-                'error': str(error)
-            })
+            try:
+                paddle_labeling_result = extract_paddle_labeling_result(
+                    image_filename,
+                    bulk_image['image_bytes'],
+                    release_after_inference=False
+                )
+                processed_count += 1
+                yield encode_bulk_ocr_event({
+                    'success': True,
+                    'type': 'result',
+                    'index': image_index,
+                    'total': total_count,
+                    **paddle_labeling_result
+                })
+            except Exception as error:
+                error_count += 1
+                yield encode_bulk_ocr_event({
+                    'success': False,
+                    'type': 'error',
+                    'index': image_index,
+                    'total': total_count,
+                    'filename': image_filename,
+                    'error': str(error)
+                })
 
-    yield encode_bulk_ocr_event({
-        'success': True,
-        'type': 'completed',
-        'total': total_count,
-        'processedCount': processed_count,
-        'errorCount': error_count
-    })
+        yield encode_bulk_ocr_event({
+            'success': True,
+            'type': 'completed',
+            'total': total_count,
+            'processedCount': processed_count,
+            'errorCount': error_count
+        })
+    finally:
+        release_paddle_ocr()
 
 
-def extract_paddle_labeling_result(image_filename, image_bytes):
+def extract_paddle_labeling_result(image_filename, image_bytes, release_after_inference=True):
     image_width, image_height = read_image_size(image_bytes)
-    paddle_ocr_response = request_paddle_ocr(image_bytes)
+    paddle_ocr_response = request_paddle_ocr(image_bytes, release_after_inference=release_after_inference)
 
     with saved_temporary_raw_ocr_response(UPLOAD_DIR, 'paddle_ocr_', paddle_ocr_response) as raw_response_path:
         return build_paddle_labeling_result_from_raw_file(image_filename, image_width, image_height, raw_response_path)
@@ -431,6 +428,7 @@ def run_bulk_paddle_ocr_job(bulk_job_id):
 
     update_bulk_ocr_job(bulk_job_id, {'status': 'running', 'updatedAt': time.time()})
     send_bulk_ocr_job_started_email(bulk_ocr_job)
+    print(f"[PaddleOCR bulk] started job={bulk_job_id} total={bulk_ocr_job['total']} output={bulk_ocr_job.get('outputFolderPath', '')}", flush=True)
 
     try:
         for saved_image in bulk_ocr_job['images']:
@@ -441,19 +439,28 @@ def run_bulk_paddle_ocr_job(bulk_job_id):
             image_filename = saved_image['filename']
 
             try:
-                existing_result = read_existing_bulk_ocr_result_file(bulk_ocr_job.get('outputFolderPath'), saved_image, bulk_job_id)
-                if existing_result:
+                exact_result_path = get_ocr_result_path(
+                    bulk_ocr_job.get('outputFolderPath'),
+                    saved_image['filename'],
+                    image_index
+                )
+                existing_result_path = find_existing_ocr_result_path(
+                    bulk_ocr_job.get('outputFolderPath'),
+                    saved_image['filename'],
+                    exact_result_path
+                )
+                if existing_result_path and existing_result_path.exists():
                     with BULK_OCR_JOB_LOCK:
                         current_job = BULK_OCR_JOBS[bulk_job_id]
-                        current_job['results'].append(existing_result)
                         current_job['processedCount'] += 1
                         current_job['skippedCount'] += 1
                         current_job['updatedAt'] = time.time()
+                        log_bulk_ocr_progress_if_needed(bulk_job_id, current_job)
                     continue
 
                 image_bytes = Path(saved_image['path']).read_bytes()
                 image_width, image_height = read_image_size(image_bytes)
-                paddle_ocr_response = request_paddle_ocr(image_bytes)
+                paddle_ocr_response = request_paddle_ocr(image_bytes, release_after_inference=False)
                 raw_response_path = get_ocr_result_path(bulk_ocr_job.get('outputFolderPath'), image_filename, image_index)
 
                 if raw_response_path:
@@ -471,9 +478,10 @@ def run_bulk_paddle_ocr_job(bulk_job_id):
 
                 with BULK_OCR_JOB_LOCK:
                     current_job = BULK_OCR_JOBS[bulk_job_id]
-                    current_job['results'].append(paddle_labeling_result)
+                    append_bulk_ocr_job_result(current_job, paddle_labeling_result)
                     current_job['processedCount'] += 1
                     current_job['updatedAt'] = time.time()
+                    log_bulk_ocr_progress_if_needed(bulk_job_id, current_job)
             except Exception as error:
                 with BULK_OCR_JOB_LOCK:
                     current_job = BULK_OCR_JOBS[bulk_job_id]
@@ -482,8 +490,11 @@ def run_bulk_paddle_ocr_job(bulk_job_id):
                         'filename': image_filename,
                         'error': str(error)
                     })
+                    current_job['processedCount'] += 1
                     current_job['errorCount'] += 1
                     current_job['updatedAt'] = time.time()
+                    log_bulk_ocr_error_if_needed(bulk_job_id, current_job, image_index, image_filename, error)
+                    log_bulk_ocr_progress_if_needed(bulk_job_id, current_job)
 
         if is_bulk_ocr_stop_requested(bulk_job_id):
             update_bulk_ocr_job(bulk_job_id, {'status': 'stopped', 'updatedAt': time.time()})
@@ -505,7 +516,44 @@ def run_bulk_paddle_ocr_job(bulk_job_id):
         current_job = get_bulk_ocr_job(bulk_job_id)
         release_paddle_ocr()
         if current_job:
+            print(
+                f"[PaddleOCR bulk] finished job={bulk_job_id} status={current_job.get('status')} "
+                f"processed={current_job.get('processedCount', 0)}/{current_job.get('total', 0)} "
+                f"skipped={current_job.get('skippedCount', 0)} errors={current_job.get('errorCount', 0)}",
+                flush=True
+            )
+        if current_job:
             send_bulk_ocr_job_finished_email(current_job)
+
+
+def append_bulk_ocr_job_result(current_job, paddle_labeling_result):
+    current_job['results'].append(paddle_labeling_result)
+    if len(current_job['results']) > BULK_OCR_RESULT_HISTORY_LIMIT:
+        del current_job['results'][:-BULK_OCR_RESULT_HISTORY_LIMIT]
+
+
+def log_bulk_ocr_progress_if_needed(bulk_job_id, current_job):
+    processed_count = current_job.get('processedCount', 0)
+    total_count = current_job.get('total', 0)
+
+    if processed_count == total_count or processed_count % 1000 == 0:
+        print(
+            f"[PaddleOCR bulk] progress job={bulk_job_id} "
+            f"processed={processed_count}/{total_count} "
+            f"skipped={current_job.get('skippedCount', 0)} errors={current_job.get('errorCount', 0)}",
+            flush=True
+        )
+
+
+def log_bulk_ocr_error_if_needed(bulk_job_id, current_job, image_index, image_filename, error):
+    error_count = current_job.get('errorCount', 0)
+    if error_count <= 5 or error_count % 100 == 0:
+        print(
+            f"[PaddleOCR bulk] error job={bulk_job_id} "
+            f"index={image_index} filename={image_filename} "
+            f"errors={error_count} error={error}",
+            flush=True
+        )
 
 
 def get_bulk_ocr_job(bulk_job_id):
@@ -735,7 +783,8 @@ def resolve_server_folder(raw_folder_path, allowed_root, folder_label, allow_mis
 
 
 def read_existing_bulk_ocr_result_file(output_folder_path, saved_image, bulk_job_id):
-    result_path = get_ocr_result_path(output_folder_path, saved_image['filename'], saved_image['index'])
+    exact_result_path = get_ocr_result_path(output_folder_path, saved_image['filename'], saved_image['index'])
+    result_path = find_existing_ocr_result_path(output_folder_path, saved_image['filename'], exact_result_path)
     if not result_path or not result_path.exists():
         return None
 
@@ -754,17 +803,54 @@ def read_existing_bulk_ocr_result_file(output_folder_path, saved_image, bulk_job
     return paddle_labeling_result
 
 
-def request_paddle_ocr(image_bytes):
+def find_existing_ocr_result_path(output_folder_path, image_filename, exact_result_path=None):
+    if exact_result_path and exact_result_path.exists():
+        return exact_result_path
+
+    if not output_folder_path:
+        return None
+
+    image_stem = str(Path(str(image_filename).replace('\\', '/')).with_suffix(''))
+    safe_stem = ''.join(character if character.isalnum() or character in '._-' else '_' for character in image_stem)
+    safe_stem = safe_stem.strip('._') or 'image'
+    matches = sorted(Path(output_folder_path).glob(f'*_{safe_stem}.json'))
+    return matches[0] if matches else exact_result_path
+
+
+def request_paddle_ocr(image_bytes, release_after_inference=True):
     byte_img = base64.b64encode(image_bytes).decode('utf-8')
     payload = json.dumps({
         'byte_img': byte_img,
-        'predict_options': {}
+        'predict_options': {},
+        'release_after_inference': release_after_inference
     }).encode('utf-8')
 
     request = urllib.request.Request(PADDLE_OCR_API_URL, data=payload, headers={'Content-Type': 'application/json'})
 
-    with urllib.request.urlopen(request, timeout=PADDLE_OCR_API_TIMEOUT) as response:
-        return json.loads(response.read().decode('utf-8'))
+    try:
+        with urllib.request.urlopen(request, timeout=PADDLE_OCR_API_TIMEOUT) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except urllib.error.HTTPError as error:
+        error_body = error.read().decode('utf-8', errors='replace')
+        release_paddle_ocr()
+        raise RuntimeError(format_paddle_ocr_http_error(error.code, error_body)) from None
+    except Exception:
+        release_paddle_ocr()
+        raise
+
+
+def format_paddle_ocr_http_error(status_code, error_body):
+    try:
+        error_payload = json.loads(error_body or '{}')
+        detail = error_payload.get('detail') or error_body
+    except json.JSONDecodeError:
+        detail = error_body
+
+    detail = str(detail or '').strip()
+    if detail:
+        return f'HTTP {status_code}: {detail}'
+
+    return f'HTTP {status_code}'
 
 
 def release_paddle_ocr():

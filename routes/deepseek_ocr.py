@@ -27,7 +27,7 @@ from config import (
     UPLOAD_DIR,
 )
 from responses import json_response
-from utils.file_utils import ANNOTATION_IMAGE_EXTENSIONS, list_image_paths
+from utils.file_utils import ANNOTATION_IMAGE_EXTENSIONS, list_child_folders, list_image_paths
 from utils.labeling_boxes import build_labeling_boxes, read_image_size
 from utils.ocr_result_files import (
     get_ocr_result_path,
@@ -158,28 +158,17 @@ def list_server_folders(path=''):
     except ValueError as error:
         return json_response({'success': False, 'error': str(error)}, status_code=400)
 
-    child_folders = []
     try:
-        folder_entries = sorted(current_folder.iterdir(), key=lambda folder_entry: folder_entry.name.lower())
+        child_folders = list_child_folders(current_folder)
     except OSError as error:
         return json_response({'success': False, 'error': f'폴더를 열 수 없습니다: {error}'}, status_code=400)
-
-    for folder_entry in folder_entries:
-        if not folder_entry.is_dir():
-            continue
-
-        child_folders.append({
-            'name': folder_entry.name,
-            'path': str(folder_entry)
-        })
 
     root_folder = SERVER_FOLDER_ROOT.resolve(strict=False)
     parent_path = ''
     if current_folder != root_folder:
         parent_path = str(current_folder.parent)
 
-    image_paths = list_image_paths(str(current_folder), recursive=True, image_extensions=ANNOTATION_IMAGE_EXTENSIONS)
-    can_select_current_path = current_folder != root_folder and len(image_paths) > 0
+    can_select_current_path = current_folder != root_folder
 
     return json_response({
         'success': True,
@@ -187,7 +176,6 @@ def list_server_folders(path=''):
         'currentPath': str(current_folder),
         'parentPath': parent_path,
         'defaultOutputPath': str(SERVER_BULK_OUTPUT_ROOT.resolve(strict=False)),
-        'imageCount': len(image_paths),
         'canSelectCurrentPath': can_select_current_path,
         'folders': child_folders
     })

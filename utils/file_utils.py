@@ -50,6 +50,19 @@ def list_image_filenames(folder_path, image_extensions=None):
     return [Path(image_path).name for image_path in image_paths]
 
 
+def list_child_folders(folder_path):
+    child_folders = []
+    with os.scandir(folder_path) as folder_entries:
+        for folder_entry in folder_entries:
+            if folder_entry.is_dir():
+                child_folders.append({
+                    'name': folder_entry.name,
+                    'path': folder_entry.path
+                })
+
+    return sorted(child_folders, key=lambda child_folder: child_folder['name'].lower())
+
+
 def list_json_filenames(folder_path):
     folder = Path(folder_path)
     json_filenames = [
