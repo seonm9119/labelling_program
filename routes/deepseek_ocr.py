@@ -41,6 +41,7 @@ deepseek_ocr_router = APIRouter()
 DEEPSEEK_BULK_OCR_JOBS = {}
 DEEPSEEK_BULK_OCR_JOB_LOCK = threading.Lock()
 DEEPSEEK_BULK_OCR_JOB_DIR = UPLOAD_DIR / 'deepseek_ocr_bulk_jobs'
+DEEPSEEK_BULK_OCR_RESULT_HISTORY_LIMIT = 200
 DEEPSEEK_REF_DET_PATTERN = re.compile(r'<\|ref\|>(.*?)<\|/ref\|>\s*<\|det\|>(.*?)<\|/det\|>', re.DOTALL)
 DEEPSEEK_TABLE_PATTERN = re.compile(r'<table\b.*?</table>', re.DOTALL | re.IGNORECASE)
 DEEPSEEK_HTML_TAG_PATTERN = re.compile(r'<[^>]+>')
@@ -68,6 +69,8 @@ async def extract_deepseek_ocr_for_labeling(request: Request):
         deepseek_labeling_result = extract_deepseek_labeling_result(image_filename, image_bytes)
     except urllib.error.HTTPError as error:
         return json_response({'success': False, 'error': read_deepseek_error(error)}, status_code=error.code)
+    except RuntimeError as error:
+        return json_response({'success': False, 'error': str(error)}, status_code=get_deepseek_error_status_code(error))
     except urllib.error.URLError as error:
         return json_response({'success': False, 'error': f'DeepSeek OCR 연결 실패: {error.reason}'}, status_code=502)
 
@@ -283,38 +286,44 @@ def stream_bulk_deepseek_labeling_results(bulk_images):
         'total': total_count
     })
 
-    for image_index, bulk_image in enumerate(bulk_images, start=1):
-        image_filename = bulk_image['filename']
+    try:
+        for image_index, bulk_image in enumerate(bulk_images, start=1):
+            image_filename = bulk_image['filename']
 
-        try:
-            deepseek_labeling_result = extract_deepseek_labeling_result(image_filename, bulk_image['image_bytes'])
-            processed_count += 1
-            yield encode_bulk_ocr_event({
-                'success': True,
-                'type': 'result',
-                'index': image_index,
-                'total': total_count,
-                **deepseek_labeling_result
-            })
-        except Exception as error:
-            error_count += 1
-            yield encode_bulk_ocr_event({
-                'success': False,
-                'type': 'error',
-                'index': image_index,
-                'total': total_count,
-                'filename': image_filename,
-                'error': str(error)
-            })
+            try:
+                deepseek_labeling_result = extract_deepseek_labeling_result(
+                    image_filename,
+                    bulk_image['image_bytes'],
+                    release_after_inference=False
+                )
+                processed_count += 1
+                yield encode_bulk_ocr_event({
+                    'success': True,
+                    'type': 'result',
+                    'index': image_index,
+                    'total': total_count,
+                    **deepseek_labeling_result
+                })
+            except Exception as error:
+                error_count += 1
+                yield encode_bulk_ocr_event({
+                    'success': False,
+                    'type': 'error',
+                    'index': image_index,
+                    'total': total_count,
+                    'filename': image_filename,
+                    'error': str(error)
+                })
 
-    release_deepseek_ocr()
-    yield encode_bulk_ocr_event({
-        'success': True,
-        'type': 'completed',
-        'total': total_count,
-        'processedCount': processed_count,
-        'errorCount': error_count
-    })
+        yield encode_bulk_ocr_event({
+            'success': True,
+            'type': 'completed',
+            'total': total_count,
+            'processedCount': processed_count,
+            'errorCount': error_count
+        })
+    finally:
+        release_deepseek_ocr()
 
 
 def start_server_path_bulk_deepseek_ocr_job(request_payload):
@@ -410,7 +419,7 @@ def run_bulk_deepseek_ocr_job(bulk_job_id):
                 if existing_result:
                     with DEEPSEEK_BULK_OCR_JOB_LOCK:
                         current_job = DEEPSEEK_BULK_OCR_JOBS[bulk_job_id]
-                        current_job['results'].append(existing_result)
+                        append_deepseek_bulk_ocr_job_result(current_job, existing_result)
                         current_job['processedCount'] += 1
                         current_job['skippedCount'] += 1
                         current_job['updatedAt'] = time.time()
@@ -418,7 +427,7 @@ def run_bulk_deepseek_ocr_job(bulk_job_id):
 
                 image_bytes = Path(saved_image['path']).read_bytes()
                 image_width, image_height = read_image_size(image_bytes)
-                deepseek_ocr_response = request_deepseek_ocr(image_bytes)
+                deepseek_ocr_response = request_deepseek_ocr(image_bytes, release_after_inference=False)
                 raw_response_path = get_ocr_result_path(bulk_ocr_job.get('outputFolderPath'), image_filename, image_index)
 
                 if raw_response_path:
@@ -436,7 +445,7 @@ def run_bulk_deepseek_ocr_job(bulk_job_id):
 
                 with DEEPSEEK_BULK_OCR_JOB_LOCK:
                     current_job = DEEPSEEK_BULK_OCR_JOBS[bulk_job_id]
-                    current_job['results'].append(deepseek_labeling_result)
+                    append_deepseek_bulk_ocr_job_result(current_job, deepseek_labeling_result)
                     current_job['processedCount'] += 1
                     current_job['updatedAt'] = time.time()
             except Exception as error:
@@ -447,6 +456,7 @@ def run_bulk_deepseek_ocr_job(bulk_job_id):
                         'filename': image_filename,
                         'error': str(error)
                     })
+                    current_job['processedCount'] += 1
                     current_job['errorCount'] += 1
                     current_job['updatedAt'] = time.time()
 
@@ -468,6 +478,12 @@ def run_bulk_deepseek_ocr_job(bulk_job_id):
                 current_job['updatedAt'] = time.time()
     finally:
         release_deepseek_ocr()
+
+
+def append_deepseek_bulk_ocr_job_result(current_job, deepseek_labeling_result):
+    current_job['results'].append(deepseek_labeling_result)
+    if len(current_job['results']) > DEEPSEEK_BULK_OCR_RESULT_HISTORY_LIMIT:
+        del current_job['results'][:-DEEPSEEK_BULK_OCR_RESULT_HISTORY_LIMIT]
 
 
 def encode_bulk_ocr_event(event_payload):
@@ -540,7 +556,8 @@ def resolve_server_folder(raw_folder_path, allowed_root, folder_label, allow_mis
 
 
 def read_existing_bulk_ocr_result_file(output_folder_path, saved_image, bulk_job_id):
-    result_path = get_ocr_result_path(output_folder_path, saved_image['filename'], saved_image['index'])
+    exact_result_path = get_ocr_result_path(output_folder_path, saved_image['filename'], saved_image['index'])
+    result_path = find_existing_deepseek_ocr_result_path(output_folder_path, saved_image['filename'], exact_result_path)
     if not result_path or not result_path.exists():
         return None
 
@@ -559,9 +576,23 @@ def read_existing_bulk_ocr_result_file(output_folder_path, saved_image, bulk_job
     return deepseek_labeling_result
 
 
-def extract_deepseek_labeling_result(image_filename, image_bytes):
+def find_existing_deepseek_ocr_result_path(output_folder_path, image_filename, exact_result_path=None):
+    if exact_result_path and exact_result_path.exists():
+        return exact_result_path
+
+    if not output_folder_path:
+        return None
+
+    image_stem = str(Path(str(image_filename).replace('\\', '/')).with_suffix(''))
+    safe_stem = ''.join(character if character.isalnum() or character in '._-' else '_' for character in image_stem)
+    safe_stem = safe_stem.strip('._') or 'image'
+    matches = sorted(Path(output_folder_path).glob(f'*_{safe_stem}.json'))
+    return matches[0] if matches else exact_result_path
+
+
+def extract_deepseek_labeling_result(image_filename, image_bytes, release_after_inference=True):
     image_width, image_height = read_image_size(image_bytes)
-    deepseek_ocr_response = request_deepseek_ocr(image_bytes)
+    deepseek_ocr_response = request_deepseek_ocr(image_bytes, release_after_inference=release_after_inference)
 
     with saved_temporary_raw_ocr_response(UPLOAD_DIR, 'deepseek_ocr_', deepseek_ocr_response) as raw_response_path:
         return build_deepseek_labeling_result_from_raw_file(image_filename, image_width, image_height, raw_response_path)
@@ -588,10 +619,11 @@ def build_deepseek_labeling_result(image_filename, image_width, image_height, de
     }
 
 
-def request_deepseek_ocr(image_bytes):
+def request_deepseek_ocr(image_bytes, release_after_inference=True):
     byte_img = base64.b64encode(image_bytes).decode('utf-8')
     payload = json.dumps({
         'byte_img': byte_img,
+        'release_after_inference': release_after_inference,
         'predict_options': {
             'prompt': DEEPSEEK_OCR_PROMPT,
             'base_size': DEEPSEEK_OCR_BASE_SIZE,
@@ -605,8 +637,38 @@ def request_deepseek_ocr(image_bytes):
     }).encode('utf-8')
     request = urllib.request.Request(DEEPSEEK_OCR_API_URL, data=payload, headers={'Content-Type': 'application/json'})
 
-    with urllib.request.urlopen(request, timeout=DEEPSEEK_OCR_API_TIMEOUT) as response:
-        return json.loads(response.read().decode('utf-8') or '{}')
+    try:
+        with urllib.request.urlopen(request, timeout=DEEPSEEK_OCR_API_TIMEOUT) as response:
+            return json.loads(response.read().decode('utf-8') or '{}')
+    except urllib.error.HTTPError as error:
+        error_body = error.read().decode('utf-8', errors='replace')
+        release_deepseek_ocr()
+        raise RuntimeError(format_deepseek_ocr_http_error(error.code, error_body)) from None
+    except Exception:
+        release_deepseek_ocr()
+        raise
+
+
+def format_deepseek_ocr_http_error(status_code, error_body):
+    try:
+        error_payload = json.loads(error_body or '{}')
+        detail = error_payload.get('detail') or error_body
+    except json.JSONDecodeError:
+        detail = error_body
+
+    detail = str(detail or '').strip()
+    if detail:
+        return f'HTTP {status_code}: {detail}'
+
+    return f'HTTP {status_code}'
+
+
+def get_deepseek_error_status_code(error):
+    status_match = re.match(r'HTTP\s+(\d+)', str(error))
+    if status_match:
+        return int(status_match.group(1))
+
+    return 500
 
 
 def release_deepseek_ocr():
