@@ -13,9 +13,9 @@ services:
       - ./models:/app/models:ro
       - ./routes:/app/routes:ro
       - ./utils:/app/utils:ro
-      # 호스트 파일시스템 마운트
+      # Host filesystem mounts
       - /home:/home
-      - /mnt:/mnt
+      - /mnt/h:/mnt/h:rw,rslave
     environment:
       - APP_DEBUG=1
       - APP_PORT=5001
