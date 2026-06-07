@@ -27,6 +27,9 @@ Thumbs.db
 .env.local
 .secrets/
 
+# Local mount scripts
+scripts/refresh_mnt_h_containers.sh
+
 # Uploads (user data)
 uploads/
 outputs/
