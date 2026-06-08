@@ -1,8 +1,8 @@
 services:
-  labeling_program:
+  labeling-program:
     build: .
-    image: labelling_program:latest
-    container_name: labeling_program
+    image: labeling-program:latest
+    container_name: labeling-program
     ports:
       - "127.0.0.1:5001:5001"
     volumes:

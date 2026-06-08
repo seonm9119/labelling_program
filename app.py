@@ -22,14 +22,14 @@ def create_app():
     @app.get('/')
     def service_index():
         return {
-            'service': 'labelling_program',
+            'service': 'labeling-program',
             'mode': 'api-only',
             'status': 'ok',
             'docs': '/docs',
             'health': '/health',
             'groups': {
-                'paddle_ocr': ['/api/labeling/paddle_ocr'],
-                'deepseek_ocr': ['/api/labeling/deepseek_ocr'],
+                'paddle-ocr': ['/api/labeling/paddle_ocr'],
+                'deepseek-ocr': ['/api/labeling/deepseek_ocr'],
                 'keyvalue': ['/editor/check-folder', '/batch/check-folder', '/batch/auto-mapping']
             }
         }
@@ -38,7 +38,7 @@ def create_app():
     @app.get('/api/health')
     def health_check():
         return {
-            'service': 'labelling_program',
+            'service': 'labeling-program',
             'mode': 'api-only',
             'status': 'ok'
         }
