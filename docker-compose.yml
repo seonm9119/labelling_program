@@ -9,9 +9,8 @@ services:
       # 코드 변경 시 바로 반영
       - ./app.py:/app/app.py:ro
       - ./config.py:/app/config.py:ro
-      - ./responses.py:/app/responses.py:ro
-      - ./models:/app/models:ro
       - ./routes:/app/routes:ro
+      - ./services:/app/services:ro
       - ./utils:/app/utils:ro
       # Host filesystem mounts
       - /home:/home
@@ -30,6 +29,25 @@ services:
       - DEEPSEEK_OCR_CROP_MODE=true
       - DEEPSEEK_OCR_MAX_NEW_TOKENS=8192
       - DEEPSEEK_OCR_USE_CACHE=true
+      - DOCLAYOUT_API_URL=http://doclayout:8003/inference
+      - DOCLAYOUT_RELEASE_URL=http://doclayout:8003/release
+      - DOCLAYOUT_API_TIMEOUT=180
+      - DOCLAYOUT_IMAGE_SIZE=1024
+      - DOCLAYOUT_CONFIDENCE=0.2
+      - DOCLAYOUT_IOU=0.45
+      - DOCLAYOUT_MAX_DET=300
+      - PP_STRUCTURE_API_URL=http://pp-structurev3:8004/inference
+      - PP_STRUCTURE_RELEASE_URL=http://pp-structurev3:8004/release
+      - PP_STRUCTURE_API_TIMEOUT=900
+      - PP_STRUCTURE_USE_DOC_ORIENTATION_CLASSIFY=false
+      - PP_STRUCTURE_USE_DOC_UNWARPING=false
+      - PP_STRUCTURE_USE_TEXTLINE_ORIENTATION=false
+      - PP_STRUCTURE_USE_SEAL_RECOGNITION=false
+      - PP_STRUCTURE_USE_TABLE_RECOGNITION=true
+      - PP_STRUCTURE_USE_FORMULA_RECOGNITION=true
+      - PP_STRUCTURE_USE_CHART_RECOGNITION=false
+      - PP_STRUCTURE_USE_REGION_DETECTION=true
+      - PP_STRUCTURE_FORMAT_BLOCK_CONTENT=false
       - SERVER_FOLDER_ROOT=/mnt/h
       - SERVER_BULK_OUTPUT_ROOT=/mnt/h
       - "OCR_NOTIFY_EMAIL_ENABLED=${OCR_NOTIFY_EMAIL_ENABLED:-1}"
@@ -46,8 +64,9 @@ services:
       - "GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}"
       - "GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}"
       - "GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}"
-      - "GOOGLE_EMAIL_TOKEN_PATH=${GOOGLE_EMAIL_TOKEN_PATH:-/home/nami/repo/labelling_program/.secrets/google_email_token.json}"
-      - "GOOGLE_EMAIL_STATE_PATH=${GOOGLE_EMAIL_STATE_PATH:-/home/nami/repo/labelling_program/.secrets/google_email_state.json}"
+      - "GOOGLE_EMAIL_SECRET_DIR=${GOOGLE_EMAIL_SECRET_DIR:-/tmp/labeling-program-secrets}"
+      - "GOOGLE_EMAIL_TOKEN_PATH=${GOOGLE_EMAIL_TOKEN_PATH:-/tmp/labeling-program-secrets/google_email_token.json}"
+      - "GOOGLE_EMAIL_STATE_PATH=${GOOGLE_EMAIL_STATE_PATH:-/tmp/labeling-program-secrets/google_email_state.json}"
     dns:
       - 8.8.8.8
       - 8.8.4.4
