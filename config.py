@@ -19,6 +19,27 @@ DEEPSEEK_OCR_CROP_MODE = os.environ.get('DEEPSEEK_OCR_CROP_MODE', 'true').lower(
 DEEPSEEK_OCR_MAX_NEW_TOKENS = int(os.environ.get('DEEPSEEK_OCR_MAX_NEW_TOKENS', '8192'))
 DEEPSEEK_OCR_USE_CACHE = os.environ.get('DEEPSEEK_OCR_USE_CACHE', 'true').lower() == 'true'
 
+DOCLAYOUT_API_URL = os.environ.get('DOCLAYOUT_API_URL', 'http://doclayout:8003/inference')
+DOCLAYOUT_RELEASE_URL = os.environ.get('DOCLAYOUT_RELEASE_URL', DOCLAYOUT_API_URL.rsplit('/', 1)[0] + '/release')
+DOCLAYOUT_API_TIMEOUT = int(os.environ.get('DOCLAYOUT_API_TIMEOUT', '180'))
+DOCLAYOUT_IMAGE_SIZE = int(os.environ.get('DOCLAYOUT_IMAGE_SIZE', '1024'))
+DOCLAYOUT_CONFIDENCE = float(os.environ.get('DOCLAYOUT_CONFIDENCE', '0.2'))
+DOCLAYOUT_IOU = float(os.environ.get('DOCLAYOUT_IOU', '0.45'))
+DOCLAYOUT_MAX_DET = int(os.environ.get('DOCLAYOUT_MAX_DET', '300'))
+
+PP_STRUCTURE_API_URL = os.environ.get('PP_STRUCTURE_API_URL', 'http://pp-structurev3:8004/inference')
+PP_STRUCTURE_RELEASE_URL = os.environ.get('PP_STRUCTURE_RELEASE_URL', PP_STRUCTURE_API_URL.rsplit('/', 1)[0] + '/release')
+PP_STRUCTURE_API_TIMEOUT = int(os.environ.get('PP_STRUCTURE_API_TIMEOUT', '900'))
+PP_STRUCTURE_USE_DOC_ORIENTATION_CLASSIFY = os.environ.get('PP_STRUCTURE_USE_DOC_ORIENTATION_CLASSIFY', 'false').lower() == 'true'
+PP_STRUCTURE_USE_DOC_UNWARPING = os.environ.get('PP_STRUCTURE_USE_DOC_UNWARPING', 'false').lower() == 'true'
+PP_STRUCTURE_USE_TEXTLINE_ORIENTATION = os.environ.get('PP_STRUCTURE_USE_TEXTLINE_ORIENTATION', 'false').lower() == 'true'
+PP_STRUCTURE_USE_SEAL_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_SEAL_RECOGNITION', 'false').lower() == 'true'
+PP_STRUCTURE_USE_TABLE_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_TABLE_RECOGNITION', 'true').lower() == 'true'
+PP_STRUCTURE_USE_FORMULA_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_FORMULA_RECOGNITION', 'true').lower() == 'true'
+PP_STRUCTURE_USE_CHART_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_CHART_RECOGNITION', 'false').lower() == 'true'
+PP_STRUCTURE_USE_REGION_DETECTION = os.environ.get('PP_STRUCTURE_USE_REGION_DETECTION', 'true').lower() == 'true'
+PP_STRUCTURE_FORMAT_BLOCK_CONTENT = os.environ.get('PP_STRUCTURE_FORMAT_BLOCK_CONTENT', 'false').lower() == 'true'
+
 SERVER_FOLDER_ROOT = Path(os.environ.get('SERVER_FOLDER_ROOT', '/mnt/h'))
 SERVER_BULK_OUTPUT_ROOT = Path(os.environ.get('SERVER_BULK_OUTPUT_ROOT', '/mnt/h'))
 
@@ -38,6 +59,7 @@ SMTP_NOTIFY_EMAIL_TIMEOUT = int(os.environ.get('SMTP_NOTIFY_EMAIL_TIMEOUT', '20'
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '').strip()
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
 GOOGLE_OAUTH_REDIRECT_URI = os.environ.get('GOOGLE_OAUTH_REDIRECT_URI', '').strip()
-GOOGLE_EMAIL_TOKEN_PATH = Path(os.environ.get('GOOGLE_EMAIL_TOKEN_PATH', '/home/nami/repo/labelling_program/.secrets/google_email_token.json'))
-GOOGLE_EMAIL_STATE_PATH = Path(os.environ.get('GOOGLE_EMAIL_STATE_PATH', '/home/nami/repo/labelling_program/.secrets/google_email_state.json'))
+GOOGLE_EMAIL_SECRET_DIR = Path(os.environ.get('GOOGLE_EMAIL_SECRET_DIR', '/tmp/labeling-program-secrets'))
+GOOGLE_EMAIL_TOKEN_PATH = Path(os.environ.get('GOOGLE_EMAIL_TOKEN_PATH', GOOGLE_EMAIL_SECRET_DIR / 'google_email_token.json'))
+GOOGLE_EMAIL_STATE_PATH = Path(os.environ.get('GOOGLE_EMAIL_STATE_PATH', GOOGLE_EMAIL_SECRET_DIR / 'google_email_state.json'))
 GOOGLE_API_TIMEOUT = int(os.environ.get('GOOGLE_API_TIMEOUT', '20'))

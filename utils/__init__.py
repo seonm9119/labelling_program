@@ -1,1 +1,1 @@
-"""Shared helpers for the labelling program."""
+"""Shared helpers for the OCR and layout gateway."""

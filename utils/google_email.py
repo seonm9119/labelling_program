@@ -160,11 +160,11 @@ def get_google_access_token():
     return token_data['access_token'], token_data.get('email', '')
 
 
-def request_google_token(payload):
-    encoded_payload = urllib.parse.urlencode(payload).encode('utf-8')
+def request_google_token(token_request_body):
+    encoded_token_request_body = urllib.parse.urlencode(token_request_body).encode('utf-8')
     request = urllib.request.Request(
         GOOGLE_TOKEN_URL,
-        data=encoded_payload,
+        data=encoded_token_request_body,
         headers={'Content-Type': 'application/x-www-form-urlencoded'},
         method='POST'
     )
@@ -224,9 +224,9 @@ def read_json_file(file_path):
         return {}
 
 
-def write_json_file(file_path, payload):
+def write_json_file(file_path, json_content):
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+    file_path.write_text(json.dumps(json_content, ensure_ascii=False, indent=2), encoding='utf-8')
     try:
         file_path.chmod(0o600)
     except OSError:

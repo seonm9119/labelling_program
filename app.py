@@ -7,17 +7,17 @@ from config import UPLOAD_DIR
 def create_app():
     app = FastAPI(
         title='Labelling Programs API',
-        description='Backend APIs for OCR and Key-Value labeling workflows.',
+        description='Backend APIs for OCR and layout labeling workflows.',
         version='0.1.0'
     )
 
     UPLOAD_DIR.mkdir(exist_ok=True)
 
-    from routes import deepseek_ocr_router, paddle_ocr_router, keyvalue_router
+    from routes.layout import layout_router
+    from routes.ocr import ocr_router
 
-    app.include_router(deepseek_ocr_router)
-    app.include_router(paddle_ocr_router)
-    app.include_router(keyvalue_router)
+    app.include_router(ocr_router)
+    app.include_router(layout_router)
 
     @app.get('/')
     def service_index():
@@ -30,7 +30,7 @@ def create_app():
             'groups': {
                 'paddle-ocr': ['/api/labeling/paddle_ocr'],
                 'deepseek-ocr': ['/api/labeling/deepseek_ocr'],
-                'keyvalue': ['/editor/check-folder', '/batch/check-folder', '/batch/auto-mapping']
+                'layout': ['/api/labeling/layout']
             }
         }
 

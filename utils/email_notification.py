@@ -17,12 +17,12 @@ from config import (
 
 def get_email_notification_status():
     sender_email = SMTP_NOTIFY_EMAIL_FROM or SMTP_NOTIFY_EMAIL_USERNAME
-    configured = is_email_notification_configured()
+    email_is_configured = is_email_notification_configured()
 
     return {
         'enabled': OCR_NOTIFY_EMAIL_ENABLED,
-        'configured': configured,
-        'connected': configured,
+        'configured': email_is_configured,
+        'connected': email_is_configured,
         'email': sender_email,
         'recipient': OCR_NOTIFY_EMAIL_TO or sender_email,
         'authMode': 'smtp'
@@ -30,8 +30,8 @@ def get_email_notification_status():
 
 
 def send_email_notification_async(subject, message):
-    thread = threading.Thread(target=send_email_notification, args=(subject, message), daemon=True)
-    thread.start()
+    notification_thread = threading.Thread(target=send_email_notification, args=(subject, message), daemon=True)
+    notification_thread.start()
 
 
 def send_email_notification(subject, message):

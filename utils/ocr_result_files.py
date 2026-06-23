@@ -14,14 +14,17 @@ def get_ocr_result_path(output_folder_path, image_filename, image_index):
 
 def make_ocr_result_filename(image_filename, image_index):
     image_stem = str(Path(str(image_filename).replace('\\', '/')).with_suffix(''))
-    safe_stem = ''.join(character if character.isalnum() or character in '._-' else '_' for character in image_stem)
+    safe_stem = make_safe_filename_part(image_stem)
     safe_stem = safe_stem.strip('._') or 'image'
     return f'{int(image_index):05d}_{safe_stem}.json'
 
 
 def make_safe_ocr_image_filename(image_filename):
-    safe_image_filename = ''.join(character if character.isalnum() or character in '._-' else '_' for character in image_filename)
-    return safe_image_filename or 'image'
+    return make_safe_filename_part(image_filename) or 'image'
+
+
+def make_safe_filename_part(filename_text):
+    return ''.join(character if character.isalnum() or character in '._-' else '_' for character in str(filename_text))
 
 
 def save_raw_ocr_response(result_path, raw_ocr_response):

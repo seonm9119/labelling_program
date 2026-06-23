@@ -26,8 +26,7 @@ from config import (
     SERVER_FOLDER_ROOT,
     UPLOAD_DIR,
 )
-from responses import json_response
-from utils.file_utils import ANNOTATION_IMAGE_EXTENSIONS, list_child_folders, list_image_paths
+from utils.file_utils import SUPPORTED_IMAGE_EXTENSIONS, list_child_folders, list_image_paths
 from utils.labeling_boxes import build_labeling_boxes, read_image_size
 from utils.ocr_result_files import (
     get_ocr_result_path,
@@ -36,6 +35,7 @@ from utils.ocr_result_files import (
     save_raw_ocr_response,
     saved_temporary_raw_ocr_response
 )
+from utils.responses import json_response
 
 deepseek_ocr_router = APIRouter()
 DEEPSEEK_BULK_OCR_JOBS = {}
@@ -339,7 +339,7 @@ def start_server_path_bulk_deepseek_ocr_job(request_payload):
     if input_folder == SERVER_FOLDER_ROOT.resolve(strict=False):
         return json_response({'success': False, 'error': '서버 입력 폴더는 /mnt/h 하위 폴더를 선택하세요.'}, status_code=400)
 
-    image_paths = list_image_paths(str(input_folder), recursive=True, image_extensions=ANNOTATION_IMAGE_EXTENSIONS, require_exists=True)
+    image_paths = list_image_paths(str(input_folder), recursive=True, image_extensions=SUPPORTED_IMAGE_EXTENSIONS, require_exists=True)
 
     if not image_paths:
         return json_response({'success': False, 'error': '선택한 서버 폴더에서 처리할 이미지가 없습니다.'}, status_code=400)
