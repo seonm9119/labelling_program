@@ -40,6 +40,9 @@ PP_STRUCTURE_USE_CHART_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_CHART_RECO
 PP_STRUCTURE_USE_REGION_DETECTION = os.environ.get('PP_STRUCTURE_USE_REGION_DETECTION', 'true').lower() == 'true'
 PP_STRUCTURE_FORMAT_BLOCK_CONTENT = os.environ.get('PP_STRUCTURE_FORMAT_BLOCK_CONTENT', 'false').lower() == 'true'
 
+VLM_KEYVALUE_API_URL = os.environ.get('VLM_KEYVALUE_API_URL', 'http://192.168.0.21:8008/api/vlm/keyvalue/extract')
+VLM_KEYVALUE_API_TIMEOUT = int(os.environ.get('VLM_KEYVALUE_API_TIMEOUT', '180'))
+
 SERVER_FOLDER_ROOT = Path(os.environ.get('SERVER_FOLDER_ROOT', '/mnt/h'))
 SERVER_BULK_OUTPUT_ROOT = Path(os.environ.get('SERVER_BULK_OUTPUT_ROOT', '/mnt/h'))
 

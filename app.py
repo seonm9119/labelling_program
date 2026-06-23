@@ -13,11 +13,13 @@ def create_app():
 
     UPLOAD_DIR.mkdir(exist_ok=True)
 
+    from routes.keyvalue import keyvalue_router
     from routes.layout import layout_router
     from routes.ocr import ocr_router
 
     app.include_router(ocr_router)
     app.include_router(layout_router)
+    app.include_router(keyvalue_router)
 
     @app.get('/')
     def service_index():
@@ -30,7 +32,8 @@ def create_app():
             'groups': {
                 'paddle-ocr': ['/api/labeling/paddle_ocr'],
                 'deepseek-ocr': ['/api/labeling/deepseek_ocr'],
-                'layout': ['/api/labeling/layout']
+                'layout': ['/api/labeling/layout'],
+                'keyvalue': ['/api/labeling/keyvalue']
             }
         }
 
