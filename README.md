@@ -4,7 +4,7 @@ FastAPI 기반의 OCR/Layout API 게이트웨이입니다.
 
 이 서비스는 프론트엔드에서 업로드한 문서 이미지를 외부 모델 컨테이너로 전달하고,
 각 모델 응답을 라벨링 화면에서 쓰기 쉬운 공통 box 형식으로 정규화해서 반환합니다.
-현재 역할은 OCR 모델과 layout 모델 호출에 집중하며, key-value 모델 로직은 이 서비스에서 분리되어 있습니다.
+현재 역할은 OCR 모델, layout 모델, Qwen 기반 key-value 추출 API를 프론트엔드에 연결하는 것입니다.
 
 ## 주요 역할
 
@@ -12,6 +12,7 @@ FastAPI 기반의 OCR/Layout API 게이트웨이입니다.
 - DeepSeek OCR 단일 이미지 및 대용량 배치 OCR 요청 처리
 - DocLayout-YOLO 문서 layout detection 요청 처리
 - PP-StructureV3 문서 구조 분석 요청 처리
+- 업로드 이미지를 Qwen VLM key-value API로 전달하고 key 목록 반환
 - 서버 폴더 탐색 및 배치 작업 결과 이미지 제공
 - OCR 배치 완료 알림 및 Google email 인증 흐름 유지
 
@@ -24,13 +25,15 @@ FastAPI 기반의 OCR/Layout API 게이트웨이입니다.
 ├── docker-compose.yml     # labeling-program 컨테이너 실행 설정
 ├── Dockerfile             # API 컨테이너 이미지 빌드 설정
 ├── routes/
+│   ├── keyvalue.py        # Qwen VLM key-value extraction route
 │   ├── layout.py          # layout API route
 │   └── ocr.py             # OCR router 조립
 ├── services/
 │   ├── deepseek_ocr.py    # DeepSeek OCR API, batch job, 결과 변환
 │   ├── doclayout.py       # DocLayout-YOLO API 호출
 │   ├── paddle_ocr.py      # Paddle OCR API, batch job, 알림/인증 route
-│   └── ppstructure.py     # PP-StructureV3 API 호출 및 layout box 변환
+│   ├── ppstructure.py     # PP-StructureV3 API 호출 및 layout box 변환
+│   └── qwen_vlm.py        # Qwen VLM key 추출 API 호출 및 응답 정규화
 └── utils/
     ├── email_notification.py
     ├── file_utils.py
@@ -104,6 +107,7 @@ python app.py
 | `GET` | `/api/labeling/deepseek_ocr/server-folders` | 서버 폴더 목록 조회 |
 | `POST` | `/api/labeling/deepseek_ocr/server-folders` | 서버 폴더 생성 |
 | `POST` | `/api/labeling/layout` | DocLayout-YOLO 또는 PP-StructureV3 layout 분석 |
+| `POST` | `/api/labeling/keyvalue` | Qwen VLM key-value 추출 |
 
 ## 요청 예시
 
@@ -139,6 +143,16 @@ curl -X POST http://127.0.0.1:5001/api/labeling/layout \
   -F "model=pp-structurev3"
 ```
 
+### Key-Value
+
+업로드한 이미지를 21번 서버의 Qwen VLM key-value API로 전달하고,
+응답의 key 목록을 중복 제거된 배열로 정규화합니다.
+
+```bash
+curl -X POST http://127.0.0.1:5001/api/labeling/keyvalue \
+  -F "image=@sample.png"
+```
+
 ## 주요 환경변수
 
 ### 앱
@@ -160,6 +174,8 @@ curl -X POST http://127.0.0.1:5001/api/labeling/layout \
 | `DEEPSEEK_OCR_RELEASE_URL` | `http://deepseek-ocr:8002/release` | DeepSeek OCR resource release endpoint |
 | `DOCLAYOUT_API_URL` | `http://doclayout:8003/inference` | DocLayout-YOLO inference endpoint |
 | `PP_STRUCTURE_API_URL` | `http://pp-structurev3:8004/inference` | PP-StructureV3 inference endpoint |
+| `VLM_KEYVALUE_API_URL` | `http://192.168.0.21:8008/api/vlm/keyvalue/extract` | Qwen VLM key-value extraction endpoint |
+| `VLM_KEYVALUE_API_TIMEOUT` | `180` | Qwen VLM key-value API timeout seconds |
 
 ### 알림 및 인증
 
@@ -186,6 +202,6 @@ curl http://127.0.0.1:5001/health
 
 ## 범위
 
-이 저장소는 프론트엔드가 OCR/Layout 모델을 호출하기 위한 API 계층입니다.
-Key-value 모델 및 key-value 매핑 로직은 이 서비스에서 제거되었으며,
-별도 modelAPI 영역에서 관리하는 것을 전제로 합니다.
+이 저장소는 프론트엔드가 OCR/Layout/Key-Value 추출 모델을 호출하기 위한 API 계층입니다.
+Key-value 추출 prompt와 VLM 추론 로직은 21번 서버의 Qwen VLM API가 담당하고,
+이 서비스는 이미지 업로드 검증, Qwen VLM API 연결, key 목록 정규화를 담당합니다.
