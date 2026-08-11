@@ -27,21 +27,16 @@ DOCLAYOUT_CONFIDENCE = float(os.environ.get('DOCLAYOUT_CONFIDENCE', '0.2'))
 DOCLAYOUT_IOU = float(os.environ.get('DOCLAYOUT_IOU', '0.45'))
 DOCLAYOUT_MAX_DET = int(os.environ.get('DOCLAYOUT_MAX_DET', '300'))
 
-PP_STRUCTURE_API_URL = os.environ.get('PP_STRUCTURE_API_URL', 'http://pp-structurev3:8004/inference')
-PP_STRUCTURE_RELEASE_URL = os.environ.get('PP_STRUCTURE_RELEASE_URL', PP_STRUCTURE_API_URL.rsplit('/', 1)[0] + '/release')
-PP_STRUCTURE_API_TIMEOUT = int(os.environ.get('PP_STRUCTURE_API_TIMEOUT', '900'))
-PP_STRUCTURE_USE_DOC_ORIENTATION_CLASSIFY = os.environ.get('PP_STRUCTURE_USE_DOC_ORIENTATION_CLASSIFY', 'false').lower() == 'true'
-PP_STRUCTURE_USE_DOC_UNWARPING = os.environ.get('PP_STRUCTURE_USE_DOC_UNWARPING', 'false').lower() == 'true'
-PP_STRUCTURE_USE_TEXTLINE_ORIENTATION = os.environ.get('PP_STRUCTURE_USE_TEXTLINE_ORIENTATION', 'false').lower() == 'true'
-PP_STRUCTURE_USE_SEAL_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_SEAL_RECOGNITION', 'false').lower() == 'true'
-PP_STRUCTURE_USE_TABLE_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_TABLE_RECOGNITION', 'true').lower() == 'true'
-PP_STRUCTURE_USE_FORMULA_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_FORMULA_RECOGNITION', 'true').lower() == 'true'
-PP_STRUCTURE_USE_CHART_RECOGNITION = os.environ.get('PP_STRUCTURE_USE_CHART_RECOGNITION', 'false').lower() == 'true'
-PP_STRUCTURE_USE_REGION_DETECTION = os.environ.get('PP_STRUCTURE_USE_REGION_DETECTION', 'true').lower() == 'true'
-PP_STRUCTURE_FORMAT_BLOCK_CONTENT = os.environ.get('PP_STRUCTURE_FORMAT_BLOCK_CONTENT', 'false').lower() == 'true'
-
-VLM_KEYVALUE_API_URL = os.environ.get('VLM_KEYVALUE_API_URL', 'http://192.168.0.21:8008/api/vlm/keyvalue/extract')
+VLM_KEYVALUE_API_URL = os.environ.get('VLM_KEYVALUE_API_URL', '').strip()
 VLM_KEYVALUE_API_TIMEOUT = int(os.environ.get('VLM_KEYVALUE_API_TIMEOUT', '180'))
+OLLAMA_KEYVALUE_API_URL = os.environ.get('OLLAMA_KEYVALUE_API_URL', 'http://ollama:11434/api/generate').strip()
+OLLAMA_KEYVALUE_MODEL = os.environ.get('OLLAMA_KEYVALUE_MODEL', 'qwen2.5vl:3b').strip()
+GPT_KEYVALUE_API_URL = os.environ.get('GPT_KEYVALUE_API_URL', '').strip()
+GPT_KEYVALUE_API_TIMEOUT = int(os.environ.get('GPT_KEYVALUE_API_TIMEOUT', '180'))
+GPT_KEYVALUE_OPENAI_API_URL = os.environ.get('GPT_KEYVALUE_OPENAI_API_URL', 'https://api.openai.com/v1/responses').strip()
+GPT_KEYVALUE_OPENAI_MODEL = os.environ.get('GPT_KEYVALUE_OPENAI_MODEL', 'gpt-5-mini').strip()
+OPENAI_API_KEY_FILE = os.environ.get('OPENAI_API_KEY_FILE', '').strip()
+OPENAI_API_KEY_SECTION = os.environ.get('OPENAI_API_KEY_SECTION', '').strip()
 
 SERVER_FOLDER_ROOT = Path(os.environ.get('SERVER_FOLDER_ROOT', '/mnt/h'))
 SERVER_BULK_OUTPUT_ROOT = Path(os.environ.get('SERVER_BULK_OUTPUT_ROOT', '/mnt/h'))

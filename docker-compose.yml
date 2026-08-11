@@ -12,6 +12,7 @@ services:
       - ./routes:/app/routes:ro
       - ./services:/app/services:ro
       - ./utils:/app/utils:ro
+      - /home/nami/repo/private.txt:/run/secrets/private.txt:ro
       # Host filesystem mounts
       - /home:/home
       - /mnt/h:/mnt/h:rw,rslave
@@ -36,20 +37,16 @@ services:
       - DOCLAYOUT_CONFIDENCE=0.2
       - DOCLAYOUT_IOU=0.45
       - DOCLAYOUT_MAX_DET=300
-      - PP_STRUCTURE_API_URL=http://pp-structurev3:8004/inference
-      - PP_STRUCTURE_RELEASE_URL=http://pp-structurev3:8004/release
-      - PP_STRUCTURE_API_TIMEOUT=900
-      - PP_STRUCTURE_USE_DOC_ORIENTATION_CLASSIFY=false
-      - PP_STRUCTURE_USE_DOC_UNWARPING=false
-      - PP_STRUCTURE_USE_TEXTLINE_ORIENTATION=false
-      - PP_STRUCTURE_USE_SEAL_RECOGNITION=false
-      - PP_STRUCTURE_USE_TABLE_RECOGNITION=true
-      - PP_STRUCTURE_USE_FORMULA_RECOGNITION=true
-      - PP_STRUCTURE_USE_CHART_RECOGNITION=false
-      - PP_STRUCTURE_USE_REGION_DETECTION=true
-      - PP_STRUCTURE_FORMAT_BLOCK_CONTENT=false
-      - VLM_KEYVALUE_API_URL=http://192.168.0.21:8008/api/vlm/keyvalue/extract
+      - VLM_KEYVALUE_API_URL=${VLM_KEYVALUE_API_URL:-}
       - VLM_KEYVALUE_API_TIMEOUT=180
+      - OLLAMA_KEYVALUE_API_URL=${OLLAMA_KEYVALUE_API_URL:-http://ollama:11434/api/generate}
+      - OLLAMA_KEYVALUE_MODEL=${OLLAMA_KEYVALUE_MODEL:-qwen2.5vl:3b}
+      - GPT_KEYVALUE_API_URL=${GPT_KEYVALUE_API_URL:-}
+      - GPT_KEYVALUE_API_TIMEOUT=180
+      - GPT_KEYVALUE_OPENAI_API_URL=${GPT_KEYVALUE_OPENAI_API_URL:-https://api.openai.com/v1/responses}
+      - GPT_KEYVALUE_OPENAI_MODEL=${GPT_KEYVALUE_OPENAI_MODEL:-gpt-5-mini}
+      - OPENAI_API_KEY_FILE=${OPENAI_API_KEY_FILE:-/run/secrets/private.txt}
+      - OPENAI_API_KEY_SECTION=${OPENAI_API_KEY_SECTION:-gpt.txt}
       - SERVER_FOLDER_ROOT=/mnt/h
       - SERVER_BULK_OUTPUT_ROOT=/mnt/h
       - "OCR_NOTIFY_EMAIL_ENABLED=${OCR_NOTIFY_EMAIL_ENABLED:-1}"

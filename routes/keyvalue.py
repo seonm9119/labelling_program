@@ -3,11 +3,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, Request
 
-from services.qwen_vlm import extract_keyvalue_result, read_http_error
+from services.gpt_keyvalue import GPT_KEYVALUE_MODEL, extract_gpt_keyvalue_result
+from services.qwen_vlm import QWEN_KEYVALUE_MODEL, extract_qwen_keyvalue_result
+from services.utils.keyvalue import read_keyvalue_http_error
 from utils.responses import json_response
 
 
 keyvalue_router = APIRouter()
+DEFAULT_KEYVALUE_MODEL = QWEN_KEYVALUE_MODEL
 
 
 @keyvalue_router.post('/api/labeling/keyvalue')
@@ -27,12 +30,41 @@ async def extract_keyvalue_for_labeling(request: Request):
 
     image_filename = Path(uploaded_image.filename).name
     include_raw = str(form.get('includeRaw', '')).lower() == 'true'
+    selected_model = normalize_keyvalue_model(form.get('model'))
 
     try:
-        keyvalue_response = extract_keyvalue_result(image_filename, image_bytes, include_raw)
+        keyvalue_response = extract_keyvalue_result(image_filename, image_bytes, selected_model, include_raw)
     except urllib.error.HTTPError as error:
-        return json_response({'success': False, 'error': read_http_error(error, 'Qwen VLM API')}, status_code=error.code)
+        api_name = get_keyvalue_model_label(selected_model)
+        return json_response({'success': False, 'error': read_keyvalue_http_error(error, api_name)}, status_code=error.code)
     except urllib.error.URLError as error:
-        return json_response({'success': False, 'error': f'Qwen VLM API 연결 실패: {error.reason}'}, status_code=502)
+        api_name = get_keyvalue_model_label(selected_model)
+        return json_response({'success': False, 'error': f'{api_name} 연결 실패: {error.reason}'}, status_code=502)
 
-    return json_response({'success': True, **keyvalue_response})
+    return json_response({
+        'success': True,
+        'selectedModel': selected_model,
+        **keyvalue_response
+    })
+
+
+def normalize_keyvalue_model(selected_model):
+    normalized_model = str(selected_model or DEFAULT_KEYVALUE_MODEL).strip().lower().replace('_', '-')
+    if normalized_model in ['gpt', 'openai', 'openai-gpt', GPT_KEYVALUE_MODEL]:
+        return GPT_KEYVALUE_MODEL
+
+    return DEFAULT_KEYVALUE_MODEL
+
+
+def get_keyvalue_model_label(selected_model):
+    if selected_model == GPT_KEYVALUE_MODEL:
+        return 'GPT Key-Value API'
+
+    return 'Qwen VLM API'
+
+
+def extract_keyvalue_result(image_filename, image_bytes, selected_model=DEFAULT_KEYVALUE_MODEL, include_raw=False):
+    if selected_model == GPT_KEYVALUE_MODEL:
+        return extract_gpt_keyvalue_result(image_filename, image_bytes, include_raw)
+
+    return extract_qwen_keyvalue_result(image_filename, image_bytes, include_raw)

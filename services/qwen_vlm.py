@@ -1,16 +1,37 @@
+import base64
 import json
-import mimetypes
+import re
+import urllib.error
 import urllib.request
-import uuid
 
-from config import VLM_KEYVALUE_API_TIMEOUT, VLM_KEYVALUE_API_URL
+from config import OLLAMA_KEYVALUE_API_URL, OLLAMA_KEYVALUE_MODEL, VLM_KEYVALUE_API_TIMEOUT, VLM_KEYVALUE_API_URL
+from services.utils.keyvalue import normalize_keyvalue_keys, normalize_keyvalue_pairs, request_keyvalue_model
 
 
-def extract_keyvalue_result(image_filename, image_bytes, include_raw=False):
+QWEN_KEYVALUE_MODEL = 'qwen-vlm'
+QWEN_KEYVALUE_PROMPT = '''
+You are an expert document labeling assistant.
+Read the document image like OCR and extract key-value pairs from forms and tables.
+For each label, find the visible filled-in value next to it, below it, or in the same table row.
+Every object must include both "key" and "value".
+If a value is truly missing, set "value" to "".
+Do not return label-only objects.
+Return JSON only in this exact shape:
+{"pairs":[{"key":"보험종목","value":"펫으로 보험"},{"key":"증권번호","value":"1964788130277"}]}
+Keep Korean labels in Korean and preserve the wording seen in the image.
+'''.strip()
+
+
+def extract_qwen_keyvalue_result(image_filename, image_bytes, include_raw=False):
     qwen_response = request_qwen_vlm_keyvalue(image_filename, image_bytes, include_raw)
-    key_items = normalize_qwen_keys(qwen_response.get('keys'))
+    pair_items = normalize_keyvalue_pairs(qwen_response.get('pairs'), qwen_response.get('keys'))
+    key_items = normalize_keyvalue_keys([pair.get('key') for pair in pair_items])
 
-    keyvalue_response = {'keys': key_items}
+    keyvalue_response = {
+        'model': qwen_response.get('model') or 'Qwen2.5-VL',
+        'pairs': pair_items,
+        'keys': key_items
+    }
     if include_raw:
         keyvalue_response['raw'] = qwen_response.get('raw')
 
@@ -18,110 +39,84 @@ def extract_keyvalue_result(image_filename, image_bytes, include_raw=False):
 
 
 def request_qwen_vlm_keyvalue(image_filename, image_bytes, include_raw=False):
-    boundary = f'labeling-keyvalue-{uuid.uuid4().hex}'
-    body = build_multipart_body(boundary, [
-        {
-            'name': 'include_raw',
-            'value': 'true' if include_raw else 'false'
-        },
-        {
-            'name': 'image',
-            'filename': image_filename,
-            'content_type': read_image_content_type(image_filename),
-            'value': image_bytes
+    if VLM_KEYVALUE_API_URL:
+        return request_keyvalue_model(VLM_KEYVALUE_API_URL, VLM_KEYVALUE_API_TIMEOUT, image_filename, image_bytes, include_raw)
+
+    return request_ollama_qwen_vlm_keyvalue(image_bytes, include_raw)
+
+
+def request_ollama_qwen_vlm_keyvalue(image_bytes, include_raw=False):
+    if not OLLAMA_KEYVALUE_API_URL:
+        raise urllib.error.URLError('Ollama Key-Value API URL is not configured.')
+    if not OLLAMA_KEYVALUE_MODEL:
+        raise urllib.error.URLError('Ollama Key-Value model is not configured.')
+
+    payload = {
+        'model': OLLAMA_KEYVALUE_MODEL,
+        'prompt': QWEN_KEYVALUE_PROMPT,
+        'images': [base64.b64encode(image_bytes).decode('ascii')],
+        'stream': False,
+        'format': 'json',
+        'options': {
+            'temperature': 0,
+            'num_ctx': 8192
         }
-    ])
+    }
     request = urllib.request.Request(
-        VLM_KEYVALUE_API_URL,
-        data=body,
-        headers={'Content-Type': f'multipart/form-data; boundary={boundary}'},
+        OLLAMA_KEYVALUE_API_URL,
+        data=json.dumps(payload).encode('utf-8'),
+        headers={'Content-Type': 'application/json'},
         method='POST'
     )
 
-    with urllib.request.urlopen(request, timeout=VLM_KEYVALUE_API_TIMEOUT) as response:
-        return json.loads(response.read().decode('utf-8'))
-
-
-def normalize_qwen_keys(raw_keys):
-    if not isinstance(raw_keys, list):
-        return []
-
-    key_items = []
-    seen_keys = set()
-    for raw_key in raw_keys:
-        key_text = read_key_text(raw_key)
-        if not key_text:
-            continue
-
-        normalized_key = normalize_key_text(key_text)
-        if not normalized_key or normalized_key in seen_keys:
-            continue
-
-        key_items.append(key_text)
-        seen_keys.add(normalized_key)
-
-    return key_items
-
-
-def read_key_text(raw_key):
-    if isinstance(raw_key, dict):
-        return clean_text(raw_key.get('key') or raw_key.get('label') or raw_key.get('name'))
-    return clean_text(raw_key)
-
-
-def normalize_key_text(value):
-    return ''.join(character for character in clean_text(value).lower() if character.isalnum())
-
-
-def clean_text(value):
-    return ' '.join(str(value or '').split()).strip()
-
-
-def build_multipart_body(boundary, parts):
-    body = bytearray()
-    for part in parts:
-        body.extend(f'--{boundary}\r\n'.encode('utf-8'))
-        body.extend(build_part_header(part))
-        body.extend(b'\r\n')
-
-        part_value = part.get('value', b'')
-        if isinstance(part_value, bytes):
-            body.extend(part_value)
-        else:
-            body.extend(str(part_value).encode('utf-8'))
-
-        body.extend(b'\r\n')
-
-    body.extend(f'--{boundary}--\r\n'.encode('utf-8'))
-    return bytes(body)
-
-
-def build_part_header(part):
-    disposition = f'Content-Disposition: form-data; name="{part.get("name")}"'
-    if part.get('filename'):
-        disposition = f'{disposition}; filename="{part.get("filename")}"'
-
-    headers = [disposition]
-    if part.get('content_type'):
-        headers.append(f'Content-Type: {part.get("content_type")}')
-
-    return ('\r\n'.join(headers) + '\r\n').encode('utf-8')
-
-
-def read_image_content_type(image_filename):
-    content_type = mimetypes.guess_type(image_filename)[0]
-    return content_type or 'application/octet-stream'
-
-
-def read_http_error(error, api_name):
     try:
-        error_payload = json.loads(error.read().decode('utf-8'))
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return f'{api_name} 오류: HTTP {error.code}'
+        with urllib.request.urlopen(request, timeout=VLM_KEYVALUE_API_TIMEOUT) as response:
+            ollama_response = json.loads(response.read().decode('utf-8'))
+    except json.JSONDecodeError as error:
+        raise urllib.error.URLError(f'Ollama 응답 JSON 파싱 실패: {error}') from error
 
-    if isinstance(error_payload, dict):
-        detail = error_payload.get('detail') or error_payload.get('error')
-        if detail:
-            return str(detail)
+    qwen_payload = parse_ollama_qwen_response(ollama_response)
+    keyvalue_response = {
+        'model': OLLAMA_KEYVALUE_MODEL,
+        'pairs': qwen_payload.get('pairs', []),
+        'keys': qwen_payload.get('keys', [])
+    }
+    if include_raw:
+        keyvalue_response['raw'] = ollama_response
 
-    return f'{api_name} 오류: HTTP {error.code}'
+    return keyvalue_response
+
+
+def parse_ollama_qwen_response(ollama_response):
+    response_text = str(ollama_response.get('response') or '').strip()
+    if not response_text:
+        raise urllib.error.URLError('Ollama Qwen 응답이 비어 있습니다.')
+
+    try:
+        parsed_response = json.loads(response_text)
+    except json.JSONDecodeError:
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if not json_match:
+            raise urllib.error.URLError('Ollama Qwen 응답에서 JSON을 찾을 수 없습니다.')
+        try:
+            parsed_response = json.loads(json_match.group(0))
+        except json.JSONDecodeError as error:
+            raise urllib.error.URLError(f'Ollama Qwen JSON 파싱 실패: {error}') from error
+
+    if isinstance(parsed_response, list):
+        return {'keys': parsed_response}
+    if not isinstance(parsed_response, dict):
+        raise urllib.error.URLError('Ollama Qwen 응답 형식이 올바르지 않습니다.')
+
+    if 'pairs' not in parsed_response and 'keys' not in parsed_response:
+        parsed_response['pairs'] = [
+            {'key': key, 'value': value}
+            for key, value in parsed_response.items()
+        ]
+    if 'keys' not in parsed_response:
+        parsed_response['keys'] = [
+            pair.get('key')
+            for pair in normalize_keyvalue_pairs(parsed_response.get('pairs'))
+        ]
+
+    return parsed_response
