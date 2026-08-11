@@ -8,16 +8,9 @@ import urllib.request
 import uuid
 from pathlib import Path
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
-from config import OCR_NOTIFY_EMAIL_SUBJECT_PREFIX, PADDLE_OCR_API_TIMEOUT, PADDLE_OCR_API_URL, PADDLE_OCR_RELEASE_URL, SERVER_BULK_OUTPUT_ROOT, SERVER_FOLDER_ROOT, UPLOAD_DIR
-from utils.email_notification import send_email_notification_async
+from fastapi.responses import FileResponse, StreamingResponse
+from config import PADDLE_OCR_API_TIMEOUT, PADDLE_OCR_API_URL, PADDLE_OCR_RELEASE_URL, SERVER_BULK_OUTPUT_ROOT, SERVER_FOLDER_ROOT, UPLOAD_DIR
 from utils.file_utils import SUPPORTED_IMAGE_EXTENSIONS, list_child_folders, list_image_paths
-from utils.google_email import (
-    build_google_email_auth_url,
-    complete_google_email_oauth,
-    complete_google_email_popup_code,
-    get_google_email_status
-)
 from utils.labeling_boxes import build_labeling_boxes, read_image_size
 from utils.ocr_result_files import (
     get_ocr_result_path,
@@ -188,62 +181,6 @@ def list_server_folders(path=''):
         'defaultOutputPath': str(SERVER_BULK_OUTPUT_ROOT.resolve(strict=False)),
         'canSelectCurrentPath': can_select_current_path,
         'folders': child_folders
-    })
-
-
-@paddle_ocr_router.get('/api/labeling/paddle_ocr/email/google/status')
-def read_google_email_connection_status():
-    return json_response({
-        'success': True,
-        **get_google_email_status()
-    })
-
-
-@paddle_ocr_router.get('/api/labeling/paddle_ocr/email/google/auth-url')
-def read_google_email_auth_url(redirect_uri=''):
-    try:
-        auth_url = build_google_email_auth_url(redirect_uri)
-    except ValueError as error:
-        return json_response({'success': False, 'error': str(error)}, status_code=400)
-
-    return json_response({
-        'success': True,
-        'authUrl': auth_url,
-        **get_google_email_status()
-    })
-
-
-@paddle_ocr_router.get('/api/labeling/paddle_ocr/email/google/callback')
-def handle_google_email_oauth_callback(code='', state='', error=''):
-    if error:
-        return HTMLResponse(build_google_email_callback_html(False, f'Google 인증이 취소되었습니다: {error}'), status_code=400)
-
-    try:
-        connection_status = complete_google_email_oauth(code, state)
-    except Exception as callback_error:
-        return HTMLResponse(build_google_email_callback_html(False, str(callback_error)), status_code=400)
-
-    connected_email = connection_status.get('email') or 'Google 계정'
-    return HTMLResponse(build_google_email_callback_html(True, f'{connected_email} 연결이 완료되었습니다.'))
-
-
-@paddle_ocr_router.post('/api/labeling/paddle_ocr/email/google/code')
-async def handle_google_email_popup_code(request: Request):
-    if request.headers.get('x-requested-with') != 'XmlHttpRequest':
-        return json_response({'success': False, 'error': 'Google 인증 요청 헤더가 올바르지 않습니다.'}, status_code=400)
-
-    try:
-        request_payload = await request.json()
-        connection_status = complete_google_email_popup_code(
-            request_payload.get('code', ''),
-            request_payload.get('origin', '')
-        )
-    except Exception as callback_error:
-        return json_response({'success': False, 'error': str(callback_error)}, status_code=400)
-
-    return json_response({
-        'success': True,
-        **connection_status
     })
 
 
@@ -427,7 +364,6 @@ def run_bulk_paddle_ocr_job(bulk_job_id):
         return
 
     update_bulk_ocr_job(bulk_job_id, {'status': 'running', 'updatedAt': time.time()})
-    send_bulk_ocr_job_started_email(bulk_ocr_job)
     print(f"[PaddleOCR bulk] started job={bulk_job_id} total={bulk_ocr_job['total']} output={bulk_ocr_job.get('outputFolderPath', '')}", flush=True)
 
     try:
@@ -522,10 +458,6 @@ def run_bulk_paddle_ocr_job(bulk_job_id):
                 f"skipped={current_job.get('skippedCount', 0)} errors={current_job.get('errorCount', 0)}",
                 flush=True
             )
-        if current_job:
-            send_bulk_ocr_job_finished_email(current_job)
-
-
 def append_bulk_ocr_job_result(current_job, paddle_labeling_result):
     current_job['results'].append(paddle_labeling_result)
     if len(current_job['results']) > BULK_OCR_RESULT_HISTORY_LIMIT:
@@ -590,95 +522,6 @@ def build_bulk_ocr_job_response(bulk_ocr_job):
         'createdAt': bulk_ocr_job['createdAt'],
         'updatedAt': bulk_ocr_job['updatedAt']
     }
-
-
-def send_bulk_ocr_job_started_email(bulk_ocr_job):
-    subject = f"{OCR_NOTIFY_EMAIL_SUBJECT_PREFIX} 대용량 OCR 시작 - {bulk_ocr_job['jobId'][:8]}"
-    message_lines = [
-        '대용량 OCR 작업이 시작되었습니다.',
-        '',
-        f"작업 ID: {bulk_ocr_job['jobId']}",
-        f"상태: {bulk_ocr_job.get('status', 'running')}",
-        f"전체 이미지: {bulk_ocr_job.get('total', 0)}",
-        f"입력 폴더: {bulk_ocr_job.get('inputFolderPath', '-')}",
-        f"저장 폴더: {bulk_ocr_job.get('outputFolderPath', '-')}",
-        f"시작 시각: {format_email_time(bulk_ocr_job.get('updatedAt') or time.time())}"
-    ]
-    send_email_notification_async(subject, '\n'.join(message_lines))
-
-
-def send_bulk_ocr_job_finished_email(bulk_ocr_job):
-    error_count = bulk_ocr_job.get('errorCount', 0)
-    skipped_count = bulk_ocr_job.get('skippedCount', 0)
-    status_text = '완료'
-    if bulk_ocr_job.get('status') == 'failed':
-        status_text = '실패'
-    elif bulk_ocr_job.get('status') == 'stopped':
-        status_text = '중단'
-    else:
-        status_parts = []
-        if skipped_count:
-            status_parts.append(f'건너뜀 {skipped_count}건')
-        if error_count:
-            status_parts.append(f'오류 {error_count}건')
-        if status_parts:
-            status_text = f"완료, {', '.join(status_parts)}"
-
-    subject = f"{OCR_NOTIFY_EMAIL_SUBJECT_PREFIX} 대용량 OCR {status_text} - {bulk_ocr_job['jobId'][:8]}"
-    message_lines = [
-        f'대용량 OCR 작업이 {status_text}되었습니다.',
-        '',
-        f"작업 ID: {bulk_ocr_job['jobId']}",
-        f"상태: {bulk_ocr_job.get('status', '')}",
-        f"전체 이미지: {bulk_ocr_job.get('total', 0)}",
-        f"처리 완료: {bulk_ocr_job.get('processedCount', 0)}",
-        f"건너뜀: {skipped_count}",
-        f"오류: {error_count}",
-        f"입력 폴더: {bulk_ocr_job.get('inputFolderPath', '-')}",
-        f"저장 폴더: {bulk_ocr_job.get('outputFolderPath', '-')}",
-        f"종료 시각: {format_email_time(bulk_ocr_job.get('updatedAt') or time.time())}"
-    ]
-
-    if bulk_ocr_job.get('errors'):
-        message_lines.append('')
-        message_lines.append('최근 오류:')
-        for job_error in bulk_ocr_job['errors'][-5:]:
-            message_lines.append(f"- {job_error.get('filename')}: {job_error.get('error')}")
-
-    send_email_notification_async(subject, '\n'.join(message_lines))
-
-
-def format_email_time(timestamp):
-    return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
-
-
-def build_google_email_callback_html(is_success, message):
-    title = 'Google 연결 완료' if is_success else 'Google 연결 실패'
-    escaped_message = str(message).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-
-    return f"""<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="utf-8">
-    <title>{title}</title>
-    <style>
-      body {{ margin: 0; font-family: system-ui, sans-serif; background: #f4f8fb; color: #08253d; }}
-      main {{ display: grid; place-items: center; min-height: 100vh; padding: 24px; }}
-      section {{ max-width: 520px; padding: 24px; border: 1px solid #d7e5ee; border-radius: 14px; background: #fff; }}
-      h1 {{ margin: 0 0 10px; font-size: 22px; }}
-      p {{ margin: 0; line-height: 1.6; color: #52677f; }}
-    </style>
-  </head>
-  <body>
-    <main>
-      <section>
-        <h1>{title}</h1>
-        <p>{escaped_message}</p>
-        <p>이 창을 닫고 OCR 페이지로 돌아가세요.</p>
-      </section>
-    </main>
-  </body>
-</html>"""
 
 
 def start_server_path_bulk_paddle_ocr_job(request_payload):
