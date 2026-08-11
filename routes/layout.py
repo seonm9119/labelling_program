@@ -3,11 +3,6 @@ import urllib.error
 from pathlib import Path
 from fastapi import APIRouter, Request
 from services.doclayout import request_doclayout
-from services.ppstructure import (
-    PP_STRUCTURE_MODEL,
-    build_pp_structurev3_layout_boxes,
-    request_pp_structurev3,
-)
 from utils.labeling_boxes import build_labeling_boxes, read_image_size
 from utils.responses import json_response
 
@@ -73,31 +68,18 @@ def extract_layout_labeling_result(image_filename, image_bytes, selected_model=D
 
 
 def normalize_layout_model(selected_model):
-    normalized_model = str(selected_model or DEFAULT_LAYOUT_MODEL).strip().lower().replace('_', '-')
-    if normalized_model in ['ppstructurev3', 'pp-structure-v3', PP_STRUCTURE_MODEL]:
-        return PP_STRUCTURE_MODEL
-
     return DEFAULT_LAYOUT_MODEL
 
 
 def get_layout_model_label(selected_model):
-    if selected_model == PP_STRUCTURE_MODEL:
-        return 'PP-StructureV3'
-
     return 'DocLayout-YOLO'
 
 
 def request_layout_model(selected_model, image_bytes, release_after_inference=True):
-    if selected_model == PP_STRUCTURE_MODEL:
-        return request_pp_structurev3(image_bytes, release_after_inference)
-
     return request_doclayout(image_bytes, release_after_inference)
 
 
 def read_layout_boxes(selected_model, layout_response):
-    if selected_model == PP_STRUCTURE_MODEL:
-        return build_pp_structurev3_layout_boxes(layout_response)
-
     return layout_response.get('boxes', [])
 
 
