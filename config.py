@@ -37,6 +37,3 @@ GPT_KEYVALUE_OPENAI_API_URL = os.environ.get('GPT_KEYVALUE_OPENAI_API_URL', 'htt
 GPT_KEYVALUE_OPENAI_MODEL = os.environ.get('GPT_KEYVALUE_OPENAI_MODEL', 'gpt-5-mini').strip()
 OPENAI_API_KEY_FILE = os.environ.get('OPENAI_API_KEY_FILE', '').strip()
 OPENAI_API_KEY_SECTION = os.environ.get('OPENAI_API_KEY_SECTION', '').strip()
-
-SERVER_FOLDER_ROOT = Path(os.environ.get('SERVER_FOLDER_ROOT', '/mnt/h'))
-SERVER_BULK_OUTPUT_ROOT = Path(os.environ.get('SERVER_BULK_OUTPUT_ROOT', '/mnt/h'))

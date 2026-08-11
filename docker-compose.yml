@@ -47,8 +47,6 @@ services:
       - GPT_KEYVALUE_OPENAI_MODEL=${GPT_KEYVALUE_OPENAI_MODEL:-gpt-5-mini}
       - OPENAI_API_KEY_FILE=${OPENAI_API_KEY_FILE:-/run/secrets/private.txt}
       - OPENAI_API_KEY_SECTION=${OPENAI_API_KEY_SECTION:-gpt.txt}
-      - SERVER_FOLDER_ROOT=/mnt/h
-      - SERVER_BULK_OUTPUT_ROOT=/mnt/h
     dns:
       - 8.8.8.8
       - 8.8.4.4
