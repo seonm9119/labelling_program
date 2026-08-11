@@ -1,0 +1,27 @@
+services:
+  paddle-ocr:
+    image: pp-ocrv5:latest
+    container_name: paddle-ocr
+    restart: unless-stopped
+    ports:
+      - "${AWESOME_TAILSCALE_BIND_IP:?Set AWESOME_TAILSCALE_BIND_IP in .env}:8001:8001"
+    volumes:
+      - /home/nami/repo/project/labelling_program/modelAPI/paddleOCR/pretrained:/models/pretrained
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    networks:
+      model-network:
+        aliases:
+          - paddle-ocr
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+
+networks:
+  model-network:
+    external: true

@@ -1,0 +1,43 @@
+services:
+  deepseek-ocr:
+    image: deepseek-ocr2:latest
+    container_name: deepseek-ocr
+    restart: unless-stopped
+    ports:
+      - "${AWESOME_TAILSCALE_BIND_IP:?Set AWESOME_TAILSCALE_BIND_IP in .env}:8002:8002"
+    volumes:
+      - /home/nami/repo/project/labelling_program/modelAPI/deepseekOCR/pretrained:/models/pretrained
+      - /home/nami/repo/project/labelling_program/modelAPI/deepseekOCR/outputs:/models/outputs
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - HF_HOME=/models/pretrained
+      - DEEPSEEK_OCR_MODEL_CACHE_DIR=/models/pretrained
+      - DEEPSEEK_OCR_OUTPUT_DIR=/models/outputs
+      - DEEPSEEK_OCR_MODEL_NAME=deepseek-ai/DeepSeek-OCR-2
+      - DEEPSEEK_OCR_DEVICE=cuda
+      - DEEPSEEK_OCR_TORCH_DTYPE=bfloat16
+      - DEEPSEEK_OCR_ATTN_IMPLEMENTATION=flash_attention_2
+      - DEEPSEEK_OCR_BASE_SIZE=1024
+      - DEEPSEEK_OCR_IMAGE_SIZE=768
+      - DEEPSEEK_OCR_CROP_MODE=true
+      - DEEPSEEK_OCR_MAX_NEW_TOKENS=8192
+      - DEEPSEEK_OCR_USE_CACHE=true
+      - DEEPSEEK_OCR_RELEASE_AFTER_REQUEST=true
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    shm_size: "16gb"
+    networks:
+      model-network:
+        aliases:
+          - deepseek-ocr
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+
+networks:
+  model-network:
+    external: true

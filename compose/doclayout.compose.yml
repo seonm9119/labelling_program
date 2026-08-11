@@ -1,0 +1,37 @@
+services:
+  doclayout:
+    image: doclayout:latest
+    container_name: doclayout
+    restart: unless-stopped
+    ports:
+      - "${AWESOME_TAILSCALE_BIND_IP:?Set AWESOME_TAILSCALE_BIND_IP in .env}:8003:8003"
+    volumes:
+      - /home/nami/repo/project/labelling_program/modelAPI/docLayout/pretrained:/models/pretrained
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - HF_HOME=/models/pretrained
+      - DOCLAYOUT_MODEL_DIR=/models/pretrained
+      - DOCLAYOUT_MODEL_REPO=juliozhao/DocLayout-YOLO-DocStructBench
+      - DOCLAYOUT_MODEL_FILENAME=doclayout_yolo_docstructbench_imgsz1024.pt
+      - DOCLAYOUT_DEVICE=cuda:0
+      - DOCLAYOUT_IMAGE_SIZE=1024
+      - DOCLAYOUT_CONFIDENCE=0.2
+      - DOCLAYOUT_IOU=0.45
+      - DOCLAYOUT_MAX_DET=300
+      - DOCLAYOUT_RELEASE_AFTER_REQUEST=true
+    networks:
+      model-network:
+        aliases:
+          - doclayout
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+
+networks:
+  model-network:
+    external: true
