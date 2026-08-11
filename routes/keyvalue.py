@@ -3,13 +3,15 @@ from pathlib import Path
 
 from fastapi import APIRouter, Request
 
-from services.gpt_keyvalue import GPT_KEYVALUE_MODEL, extract_gpt_keyvalue_result
-from services.qwen_vlm import QWEN_KEYVALUE_MODEL, extract_qwen_keyvalue_result
+from config import AWESOMI_KEYVALUE_API_TIMEOUT, AWESOMI_KEYVALUE_API_URL
 from services.utils.keyvalue import read_keyvalue_http_error
+from services.utils.keyvalue import request_keyvalue_model
 from utils.responses import json_response
 
 
 keyvalue_router = APIRouter()
+QWEN_KEYVALUE_MODEL = 'qwen-vlm'
+GPT_KEYVALUE_MODEL = 'gpt'
 DEFAULT_KEYVALUE_MODEL = QWEN_KEYVALUE_MODEL
 
 
@@ -33,7 +35,14 @@ async def extract_keyvalue_for_labeling(request: Request):
     selected_model = normalize_keyvalue_model(form.get('model'))
 
     try:
-        keyvalue_response = extract_keyvalue_result(image_filename, image_bytes, selected_model, include_raw)
+        keyvalue_response = request_keyvalue_model(
+            AWESOMI_KEYVALUE_API_URL,
+            AWESOMI_KEYVALUE_API_TIMEOUT,
+            image_filename,
+            image_bytes,
+            selected_model,
+            include_raw
+        )
     except urllib.error.HTTPError as error:
         api_name = get_keyvalue_model_label(selected_model)
         return json_response({'success': False, 'error': read_keyvalue_http_error(error, api_name)}, status_code=error.code)
@@ -58,13 +67,6 @@ def normalize_keyvalue_model(selected_model):
 
 def get_keyvalue_model_label(selected_model):
     if selected_model == GPT_KEYVALUE_MODEL:
-        return 'GPT Key-Value API'
+        return 'Awesomi GPT Key-Value API'
 
-    return 'Qwen VLM API'
-
-
-def extract_keyvalue_result(image_filename, image_bytes, selected_model=DEFAULT_KEYVALUE_MODEL, include_raw=False):
-    if selected_model == GPT_KEYVALUE_MODEL:
-        return extract_gpt_keyvalue_result(image_filename, image_bytes, include_raw)
-
-    return extract_qwen_keyvalue_result(image_filename, image_bytes, include_raw)
+    return 'Awesomi Qwen Key-Value API'

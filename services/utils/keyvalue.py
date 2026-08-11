@@ -5,12 +5,16 @@ import urllib.request
 import uuid
 
 
-def request_keyvalue_model(api_url, api_timeout, image_filename, image_bytes, include_raw=False):
+def request_keyvalue_model(api_url, api_timeout, image_filename, image_bytes, selected_model, include_raw=False):
     if not str(api_url or '').strip():
         raise urllib.error.URLError('Key-Value API URL is not configured.')
 
     boundary = f'labeling-keyvalue-{uuid.uuid4().hex}'
     body = build_multipart_body(boundary, [
+        {
+            'name': 'model',
+            'value': selected_model
+        },
         {
             'name': 'include_raw',
             'value': 'true' if include_raw else 'false'
@@ -31,91 +35,6 @@ def request_keyvalue_model(api_url, api_timeout, image_filename, image_bytes, in
 
     with urllib.request.urlopen(request, timeout=api_timeout) as response:
         return json.loads(response.read().decode('utf-8'))
-
-
-def normalize_keyvalue_keys(raw_keys):
-    if not isinstance(raw_keys, list):
-        return []
-
-    key_items = []
-    seen_keys = set()
-    for raw_key in raw_keys:
-        key_text = read_key_text(raw_key)
-        if not key_text:
-            continue
-
-        normalized_key = normalize_key_text(key_text)
-        if not normalized_key or normalized_key in seen_keys:
-            continue
-
-        key_items.append(key_text)
-        seen_keys.add(normalized_key)
-
-    return key_items
-
-
-def normalize_keyvalue_pairs(raw_pairs, fallback_keys=None):
-    pair_items = []
-    seen_keys = set()
-
-    if isinstance(raw_pairs, dict):
-        raw_pairs = [{'key': key, 'value': value} for key, value in raw_pairs.items()]
-
-    if isinstance(raw_pairs, list):
-        for raw_pair in raw_pairs:
-            key_text = read_key_text(raw_pair)
-            if not key_text:
-                continue
-
-            normalized_key = normalize_key_text(key_text)
-            if not normalized_key or normalized_key in seen_keys:
-                continue
-
-            pair_items.append({
-                'key': key_text,
-                'value': read_value_text(raw_pair)
-            })
-            seen_keys.add(normalized_key)
-
-    for fallback_key in normalize_keyvalue_keys(fallback_keys):
-        normalized_key = normalize_key_text(fallback_key)
-        if not normalized_key or normalized_key in seen_keys:
-            continue
-
-        pair_items.append({
-            'key': fallback_key,
-            'value': ''
-        })
-        seen_keys.add(normalized_key)
-
-    return pair_items
-
-
-def read_key_text(raw_key):
-    if isinstance(raw_key, dict):
-        return clean_text(raw_key.get('key') or raw_key.get('label') or raw_key.get('name') or raw_key.get('field'))
-    return clean_text(raw_key)
-
-
-def read_value_text(raw_pair):
-    if not isinstance(raw_pair, dict):
-        return ''
-
-    return clean_text(
-        raw_pair.get('value')
-        or raw_pair.get('text')
-        or raw_pair.get('content')
-        or raw_pair.get('answer')
-        or ''
-    )
-
-
-def normalize_key_text(key_text):
-    return ''.join(character for character in clean_text(key_text).lower() if character.isalnum())
-
-
-def clean_text(raw_value):
-    return ' '.join(str(raw_value or '').split()).strip()
 
 
 def build_multipart_body(boundary, parts):
